@@ -756,6 +756,8 @@ variants = fread("variants_of_interest_with_23andme_ID.txt", header = T)
 names(variants)[1] <- "V1"
 variants = variants %>% select(V1, assay.name)
 write.table(variants,file="variants_of_interest_with_23andme_ID.txt",quote=F,row.names=F,sep="\t")
+q()
+n
 
 cat variants_of_interest_with_23andme_ID.txt variants_of_interest_with_23andme_ID_second_pass_VP.txt \
 | sort -u | grep -v "assay.name" > FINAL_variants_of_interest_with_23andme_ID_VP.txt
