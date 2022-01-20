@@ -17,8 +17,11 @@ Multiple genes and rare variants are associated with Parkinson’s disease and h
 This section goes through:
 - understanding the data and where is the data located
 
-### [2. Cleaning the data](#2-cleaning-the-data)
-How to clean the data and extract relevant information
+### [2. Data cleaning and annotation](#2-data-cleaning-and-annotation)
+How to clean the data and and annotate
+
+### [3. Extract gene-specific information](#3-gene-specific-information)
+Extracting gene-specific information especially with focus on genes identified in PD review paper Blauwendraat et al 2019 (PMI: 31521533) 
 
 ## 1. Understanding the data
 Data can be located in /data/CARD/projects/23andme_annotation. Note: the data is in genome build hg19.
@@ -45,7 +48,7 @@ File layout:
 |-------------|------------|------------|------------|----------|----------|---------|--------|----------------------|-------|-------|-------|-------|-------|------|------|--------|
 
 
-## 2. Cleaning the data
+## 2. Data cleaning and annotation
 Reduce file to only selected columns and annotate using ANNOVAR
 ```
 cut -f 4,5,6,7,10 all_snp_info.txt > short_all_snp_info.txt
@@ -76,7 +79,8 @@ paste temp1.txt temp2.txt temp3.txt temp4.txt > input_annovar_first_pass.txt
 | scaffold | position | position | alleles | assay.name | gene.context |
 |----------|----------|----------|---------|------------|--------------|
 
-## 3. Annotation
+
+First annotation with ANNOVAR
 
 ```
 module load annovar
@@ -250,6 +254,8 @@ paste coding_alleles_ref_allelev2.txt coding_alleles_ref_allele.txt > coding_all
 
 # writing file with reference alleles that need to be corrected
 paste coding_alleles_ref_allelev3.txt exonic_splicing_only_no_dup.txt > to_resolve_REF.txt
+wc -l to_resolve_REF.txt
+# 903098 to_resolve_REF.txt
 ```
 
 Compare if reference allele is in column V4 or V5
@@ -257,12 +263,11 @@ Compare if reference allele is in column V4 or V5
 module load R/3.6.0 
 R
 
-to_resolve = read.table("to_resolve_REF.txt", sep = "\t", header = T)
+library(dplyr)
+library(data.table)
 
-levels(to_resolve$V4)
-levels(to_resolve$V5)
+to_resolve = fread("to_resolve_REF.txt", sep = "\t", header = T)
 
-to_resolve$V4 = as.character(to_resolve$V4)
 to_resolve %>% group_by(V4) %>% tally()
 # A tibble: 3 × 2
   V4         n
@@ -271,7 +276,6 @@ to_resolve %>% group_by(V4) %>% tally()
 2 C     413349
 3 G      59918
 
-to_resolve$V5 = as.character(to_resolve$V5)
 to_resolve %>% group_by(V5) %>% tally()
 # A tibble: 3 × 2
   V5         n
@@ -304,9 +308,7 @@ to_resolve2 = to_resolve2 %>% filter(Comparing_ref != "FALSEFALSE")
 And replace V5 with V4, V4 with REF - for the correct allele order
 ```
 to_resolve3 = to_resolve2
-to_resolve3 %>% group_by(V4) %>% tally()
-
-to_resolve3$REF = as.character(to_resolve3$REF)
+to_resolve3 %>% group_by(Comparing_ref) %>% tally()
 
 to_resolve3 = to_resolve3 %>% mutate(V5 = ifelse(Comparing_ref == "FALSETRUE", V4, V5))
 to_resolve3 = to_resolve3 %>% mutate(V4 = ifelse(Comparing_ref == "FALSETRUE", REF, V4))
@@ -322,11 +324,474 @@ to_resolve3 %>% group_by(Comparing_ref) %>% tally()
   Comparing_ref      n
   <chr>          <int>
 1 TRUEFALSE     903088
+
+write.table(to_resolve3, "to_resolve_REF_v2.txt", row.names = F, quote = F, sep="\t")
+q()
+n
+```
+
+Re-annotate
+
+```
+# change file into normal layout: 
+# Chr, start, start, A1, A2
+
+cut -f 5-9 to_resolve_REF_v2.txt | grep -v "V5" > to_annotate_v2.txt
+```
+
+New working file "to_annotate_v2.txt"
+
+```
+module load annovar
+
+table_annovar.pl to_annotate_v2.txt $ANNOVAR_DATA/hg19/ \
+-buildver hg19 -protocol refGene,avsnp150,clinvar_20200316 \ 
+-operation g,f,f -outfile second_pass_23andme_clinvar -nastring .
+
+# new file second_pass_23andme_clinvar.hg19_multianno.txt
+```
+
+Sort out space issues
+```
+sed -i -e 's/ /_/g' second_pass_23andme_clinvar.hg19_multianno.txt
 ```
 
 
+## 3. Extracting gene-specific information
+Start off with just looking at GBA, Parkinson's and Lewy. Grep the terms and write new files:
+
+Write all info on GBA in separate file
+```
+grep -w GBA second_pass_23andme_clinvar.hg19_multianno.txt > GBA_only.txt
+wc -l GBA_only.txt
+# 135 GBA_only.txt
+```
+
+Write all info on Parkinson's into separate file
+```
+grep -e CLNDISDB -e "arkinson" second_pass_23andme_clinvar.hg19_multianno.txt | \
+grep -v "Wolff" > PD_only.txt
+wc -l PD_only.txt
+# 356 PD_only.txt
+```
+
+Write all info on Lewy body dementia
+```
+grep -e CLNDISDB -e "Lewy" second_pass_23andme_clinvar.hg19_multianno.txt | \
+grep -v "Wolff" > Lewy_only.txt
+wc -l Lewy_only.txt
+# 10 Lewy_only.txt
+```
+
+Prioritize variants by removing all that say "Benign" or "Benign/Likely_benign" or "Likely_benign" from "CLNSIG" for the files:
+PD_only.txt, GBA_only.txt, and Lewy_only.txt
+```
+module load R/3.6.0 
+R
+
+PD_only = read.table("PD_only.txt", sep = "\t", header = T)
+
+PD_only %>% group_by(CLNSIG) %>% tally()
+
+# CLNSIG                                           n
+  <chr>                                        <int>
+1 Benign                                          25
+2 Benign/Likely_benign                            27
+3 Conflicting_interpretations_of_pathogenicity    30
+4 Likely_benign                                   19
+5 Likely_pathogenic                                1
+6 Pathogenic                                      25
+7 risk_factor                                      3
+8 Uncertain_significance                          87
+
+PD_only = PD_only %>% filter(CLNSIG != "Benign"& CLNSIG != "Benign/Likely_benign" & CLNSIG != "Likely_benign")
+
+PD_only %>% group_by(CLNSIG) %>% tally()
+
+# A tibble: 5 × 2
+  CLNSIG                                           n
+  <chr>                                        <int>
+1 Conflicting_interpretations_of_pathogenicity    30
+2 Likely_pathogenic                                1
+3 Pathogenic                                      25
+4 risk_factor                                      3
+5 Uncertain_significance                          87
+
+PD_only %>% group_by(Gene.refGene) %>% tally() %>% arrange(desc(n))
+# A tibble: 33 x 2
+   Gene.refGene     n
+   <fct>        <int>
+ 1 LRRK2           75
+ 2 ATP13A2         26
+ 3 PRKN            23
+ 4 PINK1           22
+ 5 SLC6A3          17
+ 6 SNCAIP          16
+ 7 SYNJ1           13
+ 8 FBXO7           12
+ 9 PLA2G6           9
+10 GBA              8
+# … with 23 more rows
 
 
+write.table(PD_only, file="PD_only.txt", quote=FALSE,row.names=F,sep="\t")
 
+q()
+
+wc -l PD_only.txt
+# 237 PD_only.txt
+```
+
+Repeat for GBA_ony.txt
+
+```
+GBA_only = read.table("GBA_only.txt", sep = "\t", header = F, quote="", fill=FALSE)
+# this file does not contain headers, so add them using rename()
+
+GBA_only = GBA_only %>% rename("Chr" = V1, "Start" = V2, "End" = V3, "Ref" = V4, "Alt" = V5, "Func.refGene" = V6, "Gene.refGene" = V7, "GeneDetail.refGene" = V8, "ExonicFunc.refGene" = V9, "AAChange.refGene" =V10, "avsnp150" = V11, "CLNALLELE" = V12, "CLNDN" = V13, "CLNDISDB" = V14, "CLNREVSTAT" = V15, "CLNSIG" = V16)
+
+colnames(GBA_only)
+ [1] "Chr"                "Start"              "End"               
+ [4] "Ref"                "Alt"                "Func.refGene"      
+ [7] "Gene.refGene"       "GeneDetail.refGene" "ExonicFunc.refGene"
+[10] "AAChange.refGene"   "avsnp150"           "CLNALLELEID"       
+[13] "CLNDN"              "CLNDISDB"           "CLNREVSTAT"        
+[16] "CLNSIG" 
+
+GBA_only %>% group_by(CLNSIG) %>% tally()
+
+# A tibble: 10 x 2
+   CLNSIG                                           n
+   <fct>                                        <int>
+ 1 .                                               82
+ 2 Benign                                           1
+ 3 Benign/Likely_benign                             1
+ 4 Conflicting_interpretations_of_pathogenicity     5
+ 5 Likely_benign                                    2
+ 6 Likely_pathogenic                                8
+ 7 Pathogenic                                      25
+ 8 Pathogenic/Likely_pathogenic                     4
+ 9 risk_factor                                      1
+10 Uncertain_significance                           6
+
+GBA_only = GBA_only %>% filter(CLNSIG != "Benign"& CLNSIG != "Benign/Likely_benign" & CLNSIG != "Likely_benign")
+GBA_only %>% group_by(CLNSIG) %>% tally()
+# A tibble: 7 x 2
+  CLNSIG                                           n
+  <fct>                                        <int>
+1 .                                               82
+2 Conflicting_interpretations_of_pathogenicity     5
+3 Likely_pathogenic                                8
+4 Pathogenic                                      25
+5 Pathogenic/Likely_pathogenic                     4
+6 risk_factor                                      1
+7 Uncertain_significance                           6
+
+GBA_only %>% group_by(Gene.refGene) %>% tally()
+# A tibble: 1 x 2
+  Gene.refGene     n
+  <fct>        <int>
+1 GBA            131
+
+write.table(GBA_only, file="GBA_only.txt", quote=FALSE,row.names=F,sep="\t")
+q()
+
+wc -l GBA_only.txt 
+# 132 GBA_only.txt
+```
+
+And Lewy_only.txt
+
+```
+R
+Lewy = read.table("Lewy_only.txt", sep = "\t", header = T)
+
+Lewy %>% group_by(CLNSIG) %>% tally()
+# A tibble: 1 x 2
+  CLNSIG         n
+  <fct>      <int>
+1 Pathogenic     6
+
+Lewy %>% group_by(Gene.refGene) %>% tally()
+# A tibble: 3 x 2
+  Gene.refGene     n
+  <fct>        <int>
+1 GBA              2
+2 SNCA             2
+3 SNCB             2
+
+# no filtering needed
+```
+
+Merge all files, using full join
+```
+join = full_join(PD_only, GBA_only)
+# note that GBA adds another column "CLNALLELE"
+
+join = full_join(join, Lewy)
+
+#identify duplicates that might be introduced because of this extra columns
+join %>% group_by(Start) %>% tally() %>% filter(n>1)
+# A tibble: 5 x 2
+      Start     n
+      <int> <int>
+1 155204793     3
+2 155204987     2
+3 155205563     3
+4 155205634     2
+5 155207244     2
+
+# remove them (7 records) with focus on those without value in CLNALLELE and n>1
+join1 = join %>% group_by(Start) %>% add_count() %>% ungroup()
+
+join1 %>% filter(n>1) %>% select(Start, CLNALLELE, n)
+# A tibble: 12 x 3
+       Start CLNALLELE     n
+       <int> <fct>     <int>
+ 1 155204793 NA            3
+ 2 155204987 NA            2
+ 3 155205563 NA            3
+ 4 155205634 NA            2
+ 5 155207244 NA            2
+ 6 155204793 19350         3
+ 7 155204987 19334         2
+ 8 155205563 19331         3
+ 9 155205634 19329         2
+10 155207244 19367         2
+11 155204793 NA            3
+12 155205563 NA            3
+
+join1 = join1 %>% filter(n==1 | n>1 & !is.na(CLNALLELE))
+dim(join1)
+[1] 363  18
+
+write.table(join1, file="variants_of_interest.txt", quote=FALSE,row.names=F,sep="\t")
+q()
+```
+
+```
+wc -l variants_of_interest.txt
+# 364 variants_of_interest.txt
+```
+
+Now extract 23andme annotation format
+```
+# write columns 5 (scaffold) and 6 (position) into new file and separate them by ":" to match 23andme format 
+cut -f 5,6 all_snp_info.txt | sed 's/\t/:/g' > var_name.txt
+
+# write assay.name into new file
+cut -f 4 all_snp_info.txt > assay_name.txt
+
+# and combine both files to new file "to_import_R.txt"
+paste assay_name.txt var_name.txt > to_import_R.txt
+```
+
+Now edit files in R by adding one more column and compare both files
+```
+module load R/3.6.0 
+R
+require(data.table)
+library(dplyr)
+data <- fread("to_import_R.txt",header=T)
+voi <- fread("variants_of_interest.txt",header=T)
+
+# add header to second column
+voi = tidyr::unite(voi, "scaffold:position", c(Chr:Start), sep = ":")
+
+double_check <- merge(data, voi2, by="scaffold:position")
+dim(double_check)
+[1] 363  18
+write.table(double_check,file="variants_of_interest_with_23andme_ID.txt",quote=F,row.names=F,sep="\t")
+q()
+n
+
+# file contains 364 variants with 2 columns
+
+```
+
+```
+wc -l variants_of_interest_with_23andme_ID.txt
+364 variants_of_interest_with_23andme_ID.txt
+```
+
+Extract gene-specific info, based on review Blauwendraat et al 2019 (PMID: 31521533)
+```
+grep -w ATP13A2 second_pass_23andme_clinvar.hg19_multianno.txt > ATP13A2_only.txt
+grep -w DNAJC13 second_pass_23andme_clinvar.hg19_multianno.txt > DNAJC13_only.txt
+grep -w DNAJC6 second_pass_23andme_clinvar.hg19_multianno.txt > DNAJC6_only.txt
+grep -w EIF4G1 second_pass_23andme_clinvar.hg19_multianno.txt > EIF4G1_only.txt
+grep -w FBXO7 second_pass_23andme_clinvar.hg19_multianno.txt > FBXO7_only.txt
+grep -w GBA second_pass_23andme_clinvar.hg19_multianno.txt > GBA_only.txt
+grep -w GIGYF2 second_pass_23andme_clinvar.hg19_multianno.txt > GIGYF2_only.txt
+grep -w HTRA2 second_pass_23andme_clinvar.hg19_multianno.txt > HTRA2_only.txt
+grep -w LRP10 second_pass_23andme_clinvar.hg19_multianno.txt > LRP10_only.txt
+grep -w LRRK2 second_pass_23andme_clinvar.hg19_multianno.txt > LRRK2_only.txt
+grep -w PARK7 second_pass_23andme_clinvar.hg19_multianno.txt > PARK7_only.txt
+grep -w PINK1 second_pass_23andme_clinvar.hg19_multianno.txt > PINK1_only.txt
+grep -w PLA2G6 second_pass_23andme_clinvar.hg19_multianno.txt > PLA2G6_only.txt
+grep -w POLG second_pass_23andme_clinvar.hg19_multianno.txt > POLG_only.txt
+grep -w PRKN second_pass_23andme_clinvar.hg19_multianno.txt > PRKN_only.txt
+grep -w SNCA second_pass_23andme_clinvar.hg19_multianno.txt > SNCA_only.txt
+grep -w SYNJ1 second_pass_23andme_clinvar.hg19_multianno.txt > SYNJ1_only.txt
+grep -w TMEM230 second_pass_23andme_clinvar.hg19_multianno.txt > TMEM230_only.txt
+grep -w UCHL1 second_pass_23andme_clinvar.hg19_multianno.txt > UCHL1_only.txt
+grep -w VPS13C second_pass_23andme_clinvar.hg19_multianno.txt > VPS13C_only.txt
+grep -w VPS35 second_pass_23andme_clinvar.hg19_multianno.txt > VPS35_only.txt
+```
+
+Merge all files
+```
+# write header only
+head -1 second_pass_23andme_clinvar.hg19_multianno.txt > header.txt
+
+# concatenate all files
+cat header.txt ATP13A2_only.txt DNAJC13_only.txt DNAJC6_only.txt EIF4G1_only.txt FBXO7_only.txt GBA_only.txt GIGYF2_only.txt HTRA2_only.txt LRP10_only.txt LRRK2_only.txt PARK7_only.txt PINK1_only.txt PLA2G6_only.txt POLG_only.txt PRKN_only.txt SNCA_only.txt SYNJ1_only.txt TMEM230_only.txt UCHL1_only.txt VPS13C_only.txt VPS35_only.txt > PD_genes.txt
+```
+
+Annotate again, including allele frequency 
+```
+# writing columns 1-5 (Chr	Start	End	Ref	Alt) to a new file
+cut -f 1-5 PD_genes.txt > to_annotate_PD_genes.txt
+
+table_annovar.pl to_annotate_PD_genes.txt $ANNOVAR_DATA/hg19/ \
+-buildver hg19 -protocol refGene,avsnp150,clinvar_20200316,gnomad211_genome \
+-operation g,f,f,f -outfile third_pass_23andme_clinvar_to_annotate_PD_genes -nastring .
+
+# new working file: "third_pass_23andme_clinvar_to_annotate_PD_genes.hg19_multianno.txt"
+wc -l third_pass_23andme_clinvar_to_annotate_PD_genes.hg19_multianno.txt 
+1545 third_pass_23andme_clinvar_to_annotate_PD_genes.hg19_multianno.txt
+```
+
+Remove synonymous variants and PINK1-AS genes
+```
+module load R/3.6.0 
+R
+library(dplyr)
+library(tidyr)
+anno = read.table("third_pass_23andme_clinvar_to_annotate_PD_genes.hg19_multianno.txt", sep = "\t", header = T, quote="", fill=FALSE)
+
+anno %>% group_by(ExonicFunc.refGene) %>% tally()
+# A tibble: 5 x 2
+  ExonicFunc.refGene     n
+  <fct>              <int>
+1 .                    145
+2 nonsynonymous SNV    947
+3 startloss              3
+4 stopgain              43
+5 synonymous SNV       406
+
+anno = anno %>% filter(ExonicFunc.refGene != "synonymous SNV")
+anno %>% group_by(ExonicFunc.refGene) %>% tally()
+# A tibble: 4 x 2
+  ExonicFunc.refGene     n
+  <fct>              <int>
+1 .                    145
+2 nonsynonymous SNV    947
+3 startloss              3
+4 stopgain              43
+
+# remove second row, that's a mix with the header
+anno = anno %>% filter(Func.refGene != ".")
+
+# remove genes "-AS" in $Gene.refGene
+anno = tidyr::unite(anno, "combo", c(Chr:Start), sep = ":")
+anno = anno[!grepl("-AS", anno$Gene.refGene), ]
+
+write.table(anno, "variants_of_interest_additional_VP.txt", quote=F,row.names=F,sep="\t")
+# adding the VP because "cannot open file 'variants_of_interest_additional.txt': Permission denied"
+q()
+n
+```
+
+```
+wc -l variants_of_interest_additional_VP.txt
+# 1015 variants_of_interest_additional_VP.txt
+```
+
+Continue editing 23andme annotation and extracting 23andme format
+```
+# writing columns 5&6 to new file, joining them together by ":" (scaffold:position)
+cut -f 5,6 all_snp_info.txt | sed 's/\t/:/g' > var_name.txt
+
+# write column 4 (assay.name) into new file
+cut -f 4 all_snp_info.txt > assay_name.txt
+
+#paste them together and write new file
+paste assay_name.txt var_name.txt > to_import_R.txt
+```
+
+Keep editing in R
+```
+module load R/3.6.0 
+R
+require(data.table)
+library(dplyr)
+data <- fread("to_import_R.txt",header=T)
+voi <- fread("variants_of_interest_additional_VP.txt",header=T)
+names(data)[2] <- "combo"
+# anti-join here
+double_check <- merge(data, voi, by="combo")
+double_check = double_check %>% select(combo, assay.name)
+
+dim(double_check)
+# [1] 1014   33
+
+write.table(double_check,file="variants_of_interest_with_23andme_ID_second_pass_VP.txt",quote=F,row.names=F,sep="\t")
+
+q()
+n
+```
+
+```
+wc -l variants_of_interest_with_23andme_ID_second_pass_VP.txt
+# 1015 variants_of_interest_with_23andme_ID_second_pass_VP.txt
+```
+
+Merge both files "variants of interest with 23andme"
+```
+# rename scaffold:position to combo
+module load R/3.6.0 
+R
+rename = fread("variants_of_interest_with_23andme_ID.txt", header = T)
+rename = rename %>% rename("combo" = 'scaffold:position')
+
+
+cat variants_of_interest_with_23andme_ID.txt variants_of_interest_with_23andme_ID_second_pass.txt \
+| sort -u | grep -v "assay.name" > FINAL_variants_of_interest_with_23andme_ID_VP.txt
+
+wc -l FINAL_variants_of_interest_with_23andme_ID_VP.txt
+# 1377 FINAL_variants_of_interest_with_23andme_ID_VP.txt
+
+# which again does not seem to match Cornelis' file
+wc -l FINAL_variants_of_interest_with_23andme_ID.txt 
+# 1091 FINAL_variants_of_interest_with_23andme_ID.txt
+
+
+## Error in variants_of_interest_with_23andme_ID_second_pass_VP.txt 
+
+[pitzv2@cn0848 23andme_annotation]$ head variants_of_interest_with_23andme_ID_second_pass_VP.txt
+combo	assay.name
+chr12:40618961	rs281865040
+chr12:40619082	rs2256408
+chr12:40619360	rs72546335
+chr12:40619363	rs202157354
+chr12:40626170	rs200789262
+chr12:40626182	rs201439315
+chr12:40626185	rs144883021
+chr12:40626187	rs141221000
+chr12:40629436	rs33995463
+[pitzv2@cn0848 23andme_annotation]$ head variants_of_interest_with_23andme_ID_second_pass.txt
+combo	assay.name
+chr12:40618961	rs281865040
+chr12:40619082	rs2256408
+chr12:40619360	rs72546335
+chr12:40619363	rs202157354
+chr12:40626170	rs200789262
+chr12:40626182	rs201439315
+chr12:40626185	rs144883021
+chr12:40626187	rs141221000
+chr12:40629436	rs33995463
+
+```
 
 
