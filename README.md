@@ -1,7 +1,7 @@
 ## 23andme rare variants
 
  - **Project:** Assessment of Parkinson's disease pathogenic genes and risk variants
- - **Author(s):** Cornelis and Vanessa
+ - **Author(s):** Cornelis, Mike, Andy, and Vanessa
  - **Date Last Updated:** January 2022
 
 ---
@@ -9,7 +9,17 @@
 Multiple genes and rare variants are associated with Parkinson’s disease and have been shown to be either a strong risk factor or to cause disease. However, the majority of genes are under heavy debate about their actual pathogenicity and this analysis aims to assess what genes and rare variants are actually associated with Parkinson’s disease.
 
 ### Motivation/Goals:
-1) Understanding the data, where is it located, and providing summary.
+Rare variant analyses in known PD genes
+- Create a list of variants from 23andMe arrays that are reported to be associated in the literature with Parkinson’s disease (or related disease) => note this can be done by us
+
+- Perform rare variant case-control association testing per sub-population (optional, but preferred) of each variant of interest. Currently for rare variant testing we use “Score test” but we are open for suggestions on 23andMe preferred tests.
+
+- Investigate these findings and meta-analyze in other datasets such as IPDGC (https://pdgenetics.org/), GP2 (https://www.parkinsonsroadmap.org/gp2/) and UKbiobank data.
+
+- Optional, perform burden testing in genes using variants of interest using standard burden test algorithms like SKAT, CMC
+
+- Report these findings in collaboration with the 23andMe Team in a scientific journal.
+
 
 ## Structure of README:
 
