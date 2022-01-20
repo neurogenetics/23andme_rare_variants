@@ -752,46 +752,19 @@ Merge both files "variants of interest with 23andme"
 # rename scaffold:position to combo
 module load R/3.6.0 
 R
-rename = fread("variants_of_interest_with_23andme_ID.txt", header = T)
-rename = rename %>% rename("combo" = 'scaffold:position')
+variants = fread("variants_of_interest_with_23andme_ID.txt", header = T)
+names(variants)[1] <- "V1"
+variants = variants %>% select(V1, assay.name)
+write.table(variants,file="variants_of_interest_with_23andme_ID.txt",quote=F,row.names=F,sep="\t")
 
-
-cat variants_of_interest_with_23andme_ID.txt variants_of_interest_with_23andme_ID_second_pass.txt \
+cat variants_of_interest_with_23andme_ID.txt variants_of_interest_with_23andme_ID_second_pass_VP.txt \
 | sort -u | grep -v "assay.name" > FINAL_variants_of_interest_with_23andme_ID_VP.txt
 
-wc -l FINAL_variants_of_interest_with_23andme_ID_VP.txt
-# 1377 FINAL_variants_of_interest_with_23andme_ID_VP.txt
-
-# which again does not seem to match Cornelis' file
-wc -l FINAL_variants_of_interest_with_23andme_ID.txt 
-# 1091 FINAL_variants_of_interest_with_23andme_ID.txt
-
-
-## Error in variants_of_interest_with_23andme_ID_second_pass_VP.txt 
-
-[pitzv2@cn0848 23andme_annotation]$ head variants_of_interest_with_23andme_ID_second_pass_VP.txt
-combo	assay.name
-chr12:40618961	rs281865040
-chr12:40619082	rs2256408
-chr12:40619360	rs72546335
-chr12:40619363	rs202157354
-chr12:40626170	rs200789262
-chr12:40626182	rs201439315
-chr12:40626185	rs144883021
-chr12:40626187	rs141221000
-chr12:40629436	rs33995463
-[pitzv2@cn0848 23andme_annotation]$ head variants_of_interest_with_23andme_ID_second_pass.txt
-combo	assay.name
-chr12:40618961	rs281865040
-chr12:40619082	rs2256408
-chr12:40619360	rs72546335
-chr12:40619363	rs202157354
-chr12:40626170	rs200789262
-chr12:40626182	rs201439315
-chr12:40626185	rs144883021
-chr12:40626187	rs141221000
-chr12:40629436	rs33995463
+# check file
+wc -l FINAL_variants_of_interest_with_23andme_ID_VP.txt 
+# 1091 FINAL_variants_of_interest_with_23andme_ID_VP.txt
 
 ```
 
+DONE
 
