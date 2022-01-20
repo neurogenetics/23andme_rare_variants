@@ -1,7 +1,7 @@
 ## 23andme rare variants
 
  - **Project:** Assessment of Parkinson's disease pathogenic genes and risk variants
- - **Author(s):** Vanessa and Cornelis
+ - **Author(s):** Cornelis and Vanessa
  - **Date Last Updated:** January 2022
 
 ---
