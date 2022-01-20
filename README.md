@@ -749,7 +749,7 @@ wc -l variants_of_interest_with_23andme_ID_second_pass_VP.txt
 
 Merge both files "variants of interest with 23andme"
 ```
-# rename scaffold:position to combo
+# rename scaffold:position to V1
 module load R/3.6.0 
 R
 variants = fread("variants_of_interest_with_23andme_ID.txt", header = T)
