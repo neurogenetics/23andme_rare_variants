@@ -33,6 +33,9 @@ How to clean the data and and annotate
 ### [3. Extract gene-specific information](#3-gene-specific-information)
 Extracting gene-specific information especially with focus on genes identified in PD review paper Blauwendraat et al 2019 (PMI: 31521533) 
 
+### [4. Generate final list of variants](#4-final-list-of-variants)
+Write a final file with variants of interest from this data set
+
 ## 1. Understanding the data
 Data can be located in /data/CARD/projects/23andme_annotation. Note: the data is in genome build hg19.
 All SNPs are in the file "all_snp_info.txt".
@@ -786,6 +789,8 @@ n
 wc -l variants_of_interest_with_23andme_ID_second_pass_VP.txt
 # 1015 variants_of_interest_with_23andme_ID_second_pass_VP.txt (header)
 ```
+
+## 4. Final list of variants
 
 Merge both files "variants of interest with 23andme"
 ```
