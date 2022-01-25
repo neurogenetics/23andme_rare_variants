@@ -44,10 +44,10 @@ sinteractive --mem=100g --cpus-per-task=20
 cd /data/CARD/projects/23andme_annotation
 wc -l all_snp_info_txt
 
-# 64523260 all_snp_info.txt
+# 64,523,260 all_snp_info.txt
 ```
 
-The file contains 64,523,260 rows, equaling the same number of SNPs.
+The file contains 64,523,260 rows, equaling 64,523,259 variants (minus header included in wc -l).
 
 ```
 head -n 1 all_snp_info.txt 
@@ -125,21 +125,24 @@ Create new file with only unique rows and variant identifier, combining columns 
 
 ```
 cut -f 1,2 first_pass_23andme.hg19_multianno.txt | sed 's/\t/:/g' | sort | uniq -d > multiallelics.txt
-wc -l multiallelics.txt
-# 671848 multiallelics.txt
+wc -l multiallelics.txt 
+# 671,848 multiallelics.txt (no header)
 ```
-Some alleles are labelled as D/I but are they useful?
+File includes 671,848 multiallelic variants.
+
+4,124,008 variants have alleles labelled as D/I but are they useful?
 Write them into a new file by replacing D with A and I with G and then annotating again with ANNOVAR:
 ```
 awk '$4 == "D"' input_annovar_first_pass.txt > input_annovar_deletions.txt
 wc -l input_annovar_deletions.txt 
-# 4,124,008 input_annovar_deletions.txt
+# 4,124,008 input_annovar_deletions.txt (no header)
 
 #replace the alleles
 sed -i -e 's/D/A/g' input_annovar_deletions.txt
 sed -i -e 's/I/G/g' input_annovar_deletions.txt
 ```
 
+Now annotate those to see if they're interesting
 ```
 table_annovar.pl input_annovar_deletions.txt $ANNOVAR_DATA/hg19/ \
 -buildver hg19 -protocol refGene,avsnp150 \
@@ -149,17 +152,17 @@ table_annovar.pl input_annovar_deletions.txt $ANNOVAR_DATA/hg19/ \
 ```
 From the annotation, it looks like these variants could be useful but without alleles, the data can not be reliably analysed. So further analysis is based on alleles A-C-T-G and ignores D/I.
 
-Extract exonic variants and write into a new file
+Extract 907,876 exonic variants and write into a new file
 ```
 grep "exonic" first_pass_23andme.hg19_multianno.txt > exonic_only.txt
 wc -l exonic_only.txt
-# 907876 exonic_only.txt
+# 907876 exonic_only.txt (no header)
 ```
-Extract splicing variants and write into a new file
+Extract 11,667 splicing variants and write into a new file
 ```
 grep "splicing" first_pass_23andme.hg19_multianno.txt > splicing_only.txt
 wc -l splicing_only.txt 
-# 11667 splicing_only.txt
+# 11667 splicing_only.txt (no header)
 ```
 Now merge exonic_only.txt and splicing_only.txt
 ```
@@ -170,6 +173,8 @@ And add variant name
 ```
 cut -f 1,2 exonic_splicing_only.txt | sed 's/\t/:/g' > var_name.txt
 paste exonic_splicing_only.txt var_name.txt > exonic_splicing_only_v2.txt
+wc -l exonic_splicing_only_v2.txt
+# 918,876 exonic_splicing_only_v2.txt
 ```
 
 Fixing space issue
@@ -198,8 +203,13 @@ dim(data_no_dup)
 double_check <- merge(data, dup, by="V12")
 dim(double_check)
 # 15779 rows, 12 columns
+
+write.table(data_no_dup, file="exonic_splicing_only_no_dup.txt", quote=FALSE,row.names=F,sep="\t")
+q()
+n
 ```
-Only those variants that were in dup *and* in data were removed from data. Since the multiallelics.txt and exonix_splicing_only_v2.txt files are both based on first_pass_23andme.hg19_multianno.txt, the number of rows left in the file makes sense.
+Duplicate variants that were present in dup *and* in data were removed. Since the multiallelics.txt and exonix_splicing_only_v2.txt files are both based on first_pass_23andme.hg19_multianno.txt, the number of rows left in the file makes sense.
+A total of 903,097 variants are included in this file.
 
 Get correct reference allele
 ```
@@ -214,6 +224,9 @@ paste header.txt header1.txt > header_final.txt
 # "chr" "start" column
 cat header_final.txt prep_for_ref_allele.txt > prep_for_ref_allele_input.txt 
 head prep_for_ref_allele_input.txt 
+
+wc -l prep_for_ref_allele_input.txt.
+# 903098 prep_for_ref_allele_input.txt (header)
 ```
 
 | chr   | start     |
@@ -338,7 +351,11 @@ to_resolve3 %>% group_by(Comparing_ref) %>% tally()
 write.table(to_resolve3, "to_resolve_REF_v2.txt", row.names = F, quote = F, sep="\t")
 q()
 n
+
+wc -l to_resolve_REF_v2.txt 
+# 903089 to_resolve_REF_v2.txt (header)
 ```
+903,088 variants remaining
 
 Re-annotate
 
@@ -364,6 +381,9 @@ table_annovar.pl to_annotate_v2.txt $ANNOVAR_DATA/hg19/ \
 Sort out space issues
 ```
 sed -i -e 's/ /_/g' second_pass_23andme_clinvar.hg19_multianno.txt
+
+wc -l second_pass_23andme_clinvar.hg19_multianno.txt
+# 903089 second_pass_23andme_clinvar.hg19_multianno.txt (header)
 ```
 
 
@@ -374,7 +394,7 @@ Write all info on GBA in separate file
 ```
 grep -w GBA second_pass_23andme_clinvar.hg19_multianno.txt > GBA_only.txt
 wc -l GBA_only.txt
-# 135 GBA_only.txt
+# 135 GBA_only.txt (no header)
 ```
 
 Write all info on Parkinson's into separate file
@@ -382,7 +402,7 @@ Write all info on Parkinson's into separate file
 grep -e CLNDISDB -e "arkinson" second_pass_23andme_clinvar.hg19_multianno.txt | \
 grep -v "Wolff" > PD_only.txt
 wc -l PD_only.txt
-# 356 PD_only.txt
+# 356 PD_only.txt (header)
 ```
 
 Write all info on Lewy body dementia
@@ -390,7 +410,7 @@ Write all info on Lewy body dementia
 grep -e CLNDISDB -e "Lewy" second_pass_23andme_clinvar.hg19_multianno.txt | \
 grep -v "Wolff" > Lewy_only.txt
 wc -l Lewy_only.txt
-# 10 Lewy_only.txt
+# 10 Lewy_only.txt (header)
 ```
 
 Prioritize variants by removing all that say "Benign" or "Benign/Likely_benign" or "Likely_benign" from "CLNSIG" for the files:
@@ -531,10 +551,15 @@ Lewy %>% group_by(Gene.refGene) %>% tally()
 3 SNCB             2
 
 # no filtering needed
+wc -l Lewy_only.txt
+# 10 Lewy_only.txt
+
 ```
 
 Merge all files, using full join
 ```
+# continue in R
+
 join = full_join(PD_only, GBA_only)
 # note that GBA adds another column "CLNALLELE"
 
@@ -581,8 +606,10 @@ q()
 
 ```
 wc -l variants_of_interest.txt
-# 364 variants_of_interest.txt
+# 364 variants_of_interest.txt (header)
 ```
+363 variants remaining
+
 
 Now extract 23andme annotation format
 ```
@@ -621,7 +648,7 @@ n
 
 ```
 wc -l variants_of_interest_with_23andme_ID.txt
-364 variants_of_interest_with_23andme_ID.txt
+364 variants_of_interest_with_23andme_ID.txt (header)
 ```
 
 Extract gene-specific info, based on review Blauwendraat et al 2019 (PMID: 31521533)
@@ -656,6 +683,9 @@ head -1 second_pass_23andme_clinvar.hg19_multianno.txt > header.txt
 
 # concatenate all files
 cat header.txt ATP13A2_only.txt DNAJC13_only.txt DNAJC6_only.txt EIF4G1_only.txt FBXO7_only.txt GBA_only.txt GIGYF2_only.txt HTRA2_only.txt LRP10_only.txt LRRK2_only.txt PARK7_only.txt PINK1_only.txt PLA2G6_only.txt POLG_only.txt PRKN_only.txt SNCA_only.txt SYNJ1_only.txt TMEM230_only.txt UCHL1_only.txt VPS13C_only.txt VPS35_only.txt > PD_genes.txt
+
+wc -l PD_genes.txt
+# 1544 PD_genes.txt (header)
 ```
 
 Annotate again, including allele frequency 
@@ -669,7 +699,7 @@ table_annovar.pl to_annotate_PD_genes.txt $ANNOVAR_DATA/hg19/ \
 
 # new working file: "third_pass_23andme_clinvar_to_annotate_PD_genes.hg19_multianno.txt"
 wc -l third_pass_23andme_clinvar_to_annotate_PD_genes.hg19_multianno.txt 
-1545 third_pass_23andme_clinvar_to_annotate_PD_genes.hg19_multianno.txt
+# 1545 third_pass_23andme_clinvar_to_annotate_PD_genes.hg19_multianno.txt (header)
 ```
 
 Remove synonymous variants and PINK1-AS genes
@@ -715,7 +745,7 @@ n
 
 ```
 wc -l variants_of_interest_additional_VP.txt
-# 1015 variants_of_interest_additional_VP.txt
+# 1015 variants_of_interest_additional_VP.txt (header)
 ```
 
 Continue editing 23andme annotation and extracting 23andme format
@@ -754,7 +784,7 @@ n
 
 ```
 wc -l variants_of_interest_with_23andme_ID_second_pass_VP.txt
-# 1015 variants_of_interest_with_23andme_ID_second_pass_VP.txt
+# 1015 variants_of_interest_with_23andme_ID_second_pass_VP.txt (header)
 ```
 
 Merge both files "variants of interest with 23andme"
