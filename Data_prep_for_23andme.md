@@ -143,3 +143,53 @@ q()
 n
 ```
 
+Add src column to "List_of_1091variants_refGene_23andme.txt"
+```
+R
+library(dplyr)
+library(tidyr)
+
+results_23 = read.table("results_for_collaborators_freq_refGene.txt", header = T, sep = "\t")
+variants = read.table("List_of_1091variants_refGene_23andme.txt", header = T, sep = "\t")
+
+results_23_short = results_23 %>% select(scaffold, position, assay.name, src) %>% rename(Chr = scaffold, Start = position, End = position)
+results_23_short = unite(results_23_short, "combo", c(Chr, End), sep = ":")
+results_23_short = results_23_short %>% select(assay.name, src)
+
+variants_src = left_join(variants, results_23_short)
+
+write.table(variants_src, "List_of_1091variants_refGene_23andme_src.txt", quote = F, row.names = F, sep = "\t")
+
+q()
+n
+```
+
+In "scr" column, for all G (genotyped) variants, add gt.rate from "/data/CARD/PD/summary_stats/23andMe/GBA/gt_snp_stat.txt"
+In "src" column, for all I (imputed) variant, add avg.rsqr and min.rsqr from "/data/CARD/PD/summary_stats/23andMe/GBA/gt_snp_stat.txt"
+```
+R
+library(dplyr)
+library(data.table)
+
+GTrate = fread("/data/CARD/PD/summary_stats/23andMe/GBA/gt_snp_stat.txt", header = T)
+avgmin = fread("/data/CARD/PD/summary_stats/23andMe/GBA/im_snp_stat.txt", header = T)
+List = fread("List_of_1091variants_refGene_23andme_src.txt", header = T)
+
+GTrate_short = GTrate %>% select(assay.name, gt.rate)
+avgmin_short = avgmin %>% select(assay.name, avg.rsqr, min.rsqr)
+
+List_gt = left_join(List, GTrate_short)
+# set all imputed ones to NA
+List_gt = List_gt %>% mutate(gt.rate = ifelse(src == "G", gt.rate, NA))
+
+List_gt_avgmin = left_join(List_gt, avgmin_short)
+# set all genotyped ones to NA
+List_gt_avgmin = List_gt_avgmin %>% mutate(avg.rsqr = ifelse(src == "I", avg.rsqr, NA))
+List_gt_avgmin = List_gt_avgmin %>% mutate(min.rsqr = ifelse(src == "I", min.rsqr, NA))
+
+write.table(List_gt_avgmin, "List_of_1091variants_refGene_23andme_src_gtavgmin.txt", quote = F, row.names = F, sep = "\t")
+q()
+n
+```
+
+
