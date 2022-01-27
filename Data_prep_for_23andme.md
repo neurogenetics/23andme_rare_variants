@@ -179,15 +179,44 @@ GTrate_short = GTrate %>% select(assay.name, gt.rate)
 avgmin_short = avgmin %>% select(assay.name, avg.rsqr, min.rsqr)
 
 List_gt = left_join(List, GTrate_short)
-# set all imputed ones to NA
-List_gt = List_gt %>% mutate(gt.rate = ifelse(src == "G", gt.rate, NA))
 
 List_gt_avgmin = left_join(List_gt, avgmin_short)
-# set all genotyped ones to NA
-List_gt_avgmin = List_gt_avgmin %>% mutate(avg.rsqr = ifelse(src == "I", avg.rsqr, NA))
-List_gt_avgmin = List_gt_avgmin %>% mutate(min.rsqr = ifelse(src == "I", min.rsqr, NA))
+List_gt_avgmin = List_gt_avgmin %>% mutate(included = ifelse(is.na(included), "NO", included))
 
-write.table(List_gt_avgmin, "List_of_1091variants_refGene_23andme_src_gtavgmin.txt", quote = F, row.names = F, sep = "\t")
+List_gt_avgmin %>% filter(!is.na(gt.rate)| !is.na(avg.rsqr) | !is.na(min.rsqr)) %>% group_by(included) %>% tally()
+  included     n
+  <chr>    <int>
+1 NO         373
+2 YES        504
+# at least n=373 variants missing from the list of variants provided by 23andme but there's information on them in other files
+
+# add column to indicate these variants 
+List_gt_avgmin = List_gt_avgmin %>% mutate(should_be_available = if_else(included == "NO" & !is.na(gt.rate) | included == "NO" & !is.na(avg.rsqr) | included == "NO" & !is.na(min.rsqr), "to provide", if_else(included == "NO" & is.na(gt.rate) & is.na(avg.rsqr) & is.na(min.rsqr), "missing altogether", "already provided")))
+
+List_gt_avgmin %>% group_by(included, should_be_available) %>% tally()
+# A tibble: 3 × 3
+# Groups:   included [2]
+  included should_be_available     n
+  <chr>    <chr>               <int>
+1 NO       missing altogether    213
+2 NO       to provide            373
+3 YES      already provided      504
+
+# missing altogether = this variant is missing from summary stats file
+# to provide = we have gt.rate, avg.rsqr, min.rsqr information of this variant, so it clearly exists somewhere in their data and they just didn't provide it to us
+# already provided = this variant was provided in the summary stats file "results_for_collaborators"
+
+# set all genotyped ones to NA in "gt.rate_Gedit", if not already
+List_gt_avgmin %>% filter(src == "G" & is.na(gt.rate)) %>% tally() 
+# n 0
+
+# set all imputed ones to NA in "avg.rsqr_Iedit" & "min.rsqr_Iedit", if not already
+List_gt_avgmin %>% filter(src == "I" & is.na(avg.rsqr)) %>% tally() 
+# n 0
+List_gt_avgmin %>% filter(src == "I" & is.na(min.rsqr)) %>% tally() 
+# n 0 
+
+write.table(List_gt_avgmin, "List_of_1091variants_refGene_23andme_src_gtavgmin_to_provide.txt", quote = F, row.names = F, sep = "\t")
 q()
 n
 ```
