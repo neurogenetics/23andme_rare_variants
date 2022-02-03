@@ -3,7 +3,7 @@
 
 ---
 ### Quick Description: 
-Extracting 1091 variants (derived from 23andme data) from internal data sets and generate association stats on those variants only.
+Extracting 963 variants (available in GRCH38 from 23andme data) from internal data sets and generate association stats on those variants only.
 Follow Mary's script for burden testing but instead of burden testing, do --score test
 
 Extracted variants from 23andme in GRCh37, AMP-PD are in GRCh38
@@ -110,6 +110,22 @@ AMP_PD_963_23andme.fam ... done.
 ```
 AMP-PD only contains 367 out of 963 variants provided by 23andme
 
+Generate frequency file
+```
+module load plink
+plink --bfile AMP_PD_963_23andme --freq --out AMP_PD_963_23andme
+
+##
+386449 MB RAM detected; reserving 193224 MB for main workspace.
+367 variants loaded from .bim file.
+7986 people (4345 males, 3641 females) loaded from .fam.
+7986 phenotype values loaded from .fam.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 7986 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is 0.999999.
+--freq: Allele frequencies (founders only) written to AMP_PD_963_23andme.frq .
+```
 Run association test in rvtest
 ```
 # convert plink files to vcf for rvtest
@@ -191,6 +207,23 @@ Total genotyping rate is 0.999133.
 Note: No phenotypes present.
 --make-bed to UKB_963_23andme.bed + UKB_963_23andme.bim + UKB_963_23andme.fam
 ... done.
+```
+
+Generate frequency file
+```
+module load plink
+plink --bfile UKB_963_23andme --freq --out UKB_963_23andme
+
+##
+386449 MB RAM detected; reserving 193224 MB for main workspace.
+843 variants loaded from .bim file.
+200648 people (0 males, 0 females, 200648 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to UKB_963_23andme.nosex .
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 200648 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is 0.999133.
+--freq: Allele frequencies (founders only) written to UKB_963_23andme.frq .
 
 ```
 
@@ -251,7 +284,8 @@ UKB_963_23andme_withcovars_score_PD_SIBLING_CONTROL_2021_with_PC.SingleScore.ass
 UKB_963_23andme_withcovars_score_PD_SIBLING_CONTROL_2021_with_PC.SingleWald.assoc
 ```
 
-Now take those files and merge them with the latest 23andme files
+## Merge files together
+
 ```
 R
 library(dplyr)
@@ -259,7 +293,7 @@ library(tidyr)
 
 
 #####
-andme = read.table("results_collaborators_all_963.txt", sep = ",", header = T)
+andme = read.table("results_collaborators_all_963.txt", sep = "\t", header = T)
 
 # layout
 | assay.name  | scaffold | position  | alleles |
@@ -271,7 +305,8 @@ andme = andme %>% rename("Chr" = scaffold, "Start" = position)
 andme$End = andme$Start
 andme = andme %>% separate(alleles, c("REF", "ALT"), sep = "/")
 andme = andme %>% select(Chr, Start, End, REF, ALT, assay.name, pvalue:p.batch)
-
+dim(andme)
+# 963  35
 
 #####
 AMP_score = read.table("AMP_PD_963_23andme_withcovars_score.SingleScore.assoc", sep = "\t", header = T)
@@ -285,21 +320,9 @@ AMP_score = AMP_score %>% rename("Chr" = CHROM, "Start" = POS)
 AMP_score$End = AMP_score$Start
 AMP_score$Chr = paste0('chr', AMP_score$Chr)
 AMP_score = AMP_score %>% select(Chr, Start, End, REF, ALT, N_INFORMATIVE:PVALUE)
-
-
-#####
-AMP_wald = read.table("AMP_PD_963_23andme_withcovars_score.SingleWald.assoc", sep = "\t", header = T)
-# layout 
-| CHROM | POS     | REF | ALT | N_INFORMATIVE |
-|-------|---------|-----|-----|---------------|
-| 1     | 7965399 | G   | A   | 7974          |
-
-AMP_wald = AMP_wald %>% rename("Chr" = CHROM, "Start" = POS)
-AMP_wald$End = AMP_wald$Start
-AMP_wald$Chr = paste0('chr', AMP_wald$Chr)
-AMP_wald = AMP_wald %>% select(Chr, Start, End, REF, ALT, N_INFORMATIVE:Pvalue)
-AMP_wald = AMP_wald %>% rename_with(~paste0(., "_AMP_wald"), N_INFORMATIVE:Pvalue)
-AMP_wald = AMP_wald %>% rename("Test" = Test_AMP_wald)
+AMP_score = AMP_score %>% rename_with(~paste0(., "_AMP_score"), N_INFORMATIVE:PVALUE)
+dim(AMP_score)
+# 351  14
 
 # layout we need for annotation
 | Chr  | Start     | End       | Ref | Alt |
@@ -316,19 +339,48 @@ UKB_ALL_score$End = UKB_ALL_score$Start
 UKB_ALL_score$Chr = paste0('chr', UKB_ALL_score$Chr)
 UKB_ALL_score = UKB_ALL_score %>% select(Chr, Start, End, REF, ALT, N_INFORMATIVE:PVALUE)
 UKB_ALL_score = UKB_ALL_score %>% rename_with(~paste0(., "_UKB_ALL_score"), N_INFORMATIVE:PVALUE)
+dim(UKB_ALL_score)
+# 843  14
+
+#####
+UKB_CASE_CTRL_score = read.table("UKB_963_23andme_withcovars_score_PD_CASE_CONTROL_2021_with_PC.SingleScore.assoc", sep = "\t", header = T)
+
+# change
+UKB_CASE_CTRL_score = UKB_CASE_CTRL_score %>% rename("Chr" = CHROM, "Start" = POS)
+UKB_CASE_CTRL_score$End = UKB_CASE_CTRL_score$Start
+UKB_CASE_CTRL_score$Chr = paste0('chr', UKB_CASE_CTRL_score$Chr)
+UKB_CASE_CTRL_score = UKB_CASE_CTRL_score %>% select(Chr, Start, End, REF, ALT, N_INFORMATIVE:PVALUE)
+UKB_CASE_CTRL_score = UKB_CASE_CTRL_score %>% rename_with(~paste0(., "_UKB_CASE_CONTROL_score"), N_INFORMATIVE:PVALUE)
+dim(UKB_CASE_CTRL_score)
+# 843  14
+
+#####
+UKB_PARENT_CTRL_score = read.table("UKB_963_23andme_withcovars_score_PD_PARENT_CONTROL_2021_with_PC.SingleScore.assoc", sep = "\t", header = T)
+
+# change
+UKB_PARENT_CTRL_score = UKB_PARENT_CTRL_score %>% rename("Chr" = CHROM, "Start" = POS)
+UKB_PARENT_CTRL_score$End = UKB_PARENT_CTRL_score$Start
+UKB_PARENT_CTRL_score$Chr = paste0('chr', UKB_PARENT_CTRL_score$Chr)
+UKB_PARENT_CTRL_score = UKB_PARENT_CTRL_score %>% select(Chr, Start, End, REF, ALT, N_INFORMATIVE:PVALUE)
+UKB_PARENT_CTRL_score = UKB_PARENT_CTRL_score %>% rename_with(~paste0(., "_UKB_PARENT_CONTROL_score"), N_INFORMATIVE:PVALUE)
+dim(UKB_PARENT_CTRL_score)
+# 843  14
 
 
 #####
-UKB_ALL_wald = read.table("UKB_963_23andme_withcovars_score_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.SingleWald.assoc",  sep = "\t", header = T)
+UKB_SIBLING_CTR_score = read.table("UKB_963_23andme_withcovars_score_PD_SIBLING_CONTROL_2021_with_PC.SingleScore.assoc", sep = "\t", header = T)
 
 # change
-UKB_ALL_wald = UKB_ALL_wald %>% rename("Chr" = CHROM, "Start" = POS)
-UKB_ALL_wald$End = UKB_ALL_wald$Start
-UKB_ALL_wald$Chr = paste0('chr', UKB_ALL_wald$Chr)
-UKB_ALL_wald = UKB_ALL_wald %>% select(Chr, Start, End, REF, ALT, N_INFORMATIVE:Pvalue)
-UKB_ALL_wald = UKB_ALL_wald %>% rename_with(~paste0(., "_UKB_ALL_wald"), N_INFORMATIVE:Pvalue)
-UKB_ALL_wald = UKB_ALL_wald %>% rename("Test" = Test_UKB_ALL_wald)
+UKB_SIBLING_CTR_score = UKB_SIBLING_CTR_score %>% rename("Chr" = CHROM, "Start" = POS)
+UKB_SIBLING_CTR_score$End = UKB_SIBLING_CTR_score$Start
+UKB_SIBLING_CTR_score$Chr = paste0('chr', UKB_SIBLING_CTR_score$Chr)
+UKB_SIBLING_CTR_score = UKB_SIBLING_CTR_score %>% select(Chr, Start, End, REF, ALT, N_INFORMATIVE:PVALUE)
+UKB_SIBLING_CTR_score = UKB_SIBLING_CTR_score %>% rename_with(~paste0(., "_UKB_SIBLING_CONTROL_score"), N_INFORMATIVE:PVALUE)
+dim(UKB_SIBLING_CTR_score)
+# 843  14
+
 ```
+
 
 Start merging
 ```
@@ -336,17 +388,86 @@ merge1 = left_join(andme, AMP_score)
 dim(merge1)
 # 963 44
 
-
-merge2 = left_join(merge1, AMP_wald)
+merge2 = left_join(merge1, UKB_ALL_score)
 dim(merge2)
-# 2111 49
+# 963 53
 
+merge3 = left_join(merge2, UKB_CASE_CTRL_score)
+dim(merge3)
+# 963 62
 
-merge3 = left_join(merge2, UKB_ALL_score)
-merge4 = left_join(merge3, UKB_ALL_wald)
+merge4 = left_join(merge3, UKB_PARENT_CTRL_score)
+dim(merge4)
+# 963 71
 
+merge5 = left_join(merge4, UKB_SIBLING_CTR_score)
+dim(merge5)
+# 963 80
+
+# check for merging errors, i.e. are any columns all NA
+sapply(merge5, function(x)all(is.na(x)))
+# no, all good
+
+write.table(merge5, "963variants_23andme_AMPPD_UKB_cov_merged_score.txt", row.names = F, sep = "\t", quote= F)
 ```
 
+Write variant file for annotation
+```
+to_annotate = merge5 %>% select(Chr, Start, End, REF, ALT)
+names(to_annotate) = NULL
+write.table(to_annotate, "963variants_to_annotate.txt", sep = "\t", row.names =F, quote= F)
+```
 
+## Annotate 
+```
+module load annovar
+
+#gene build hg38
+
+table_annovar.pl 963variants_to_annotate.txt $ANNOVAR_DATA/hg38/ \
+-buildver hg38 -protocol refGene,avsnp150 \
+-operation g,f -outfile 963variants_23_AMP_UKB -nastring .
+
+## new files
+963variants_23_AMP_UKB.hg38_multianno.txt
+```
+
+## Final file
+Add annotation (Gene name) to merged file
+
+```
+R
+library(dplyr)
+library(tidyr)
+
+variants = read.table("963variants_23andme_AMPPD_UKB_cov_merged_score.txt", header = T, sep = "\t")
+
+Genenames = read.table("963variants_23_AMP_UKB.hg38_multianno.txt", header = T, sep = "\t")
+Genenames = Genenames %>% select(Start, Gene.refGene)
+
+#merge Gene name onto list
+mergename = left_join(variants, Genenames)
+```
+
+Add frequencies
+```
+AMP_freq = read.table("AMP_PD_963_23andme.frq", header = T, sep = "")
+AMP_freq = AMP_freq %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), sep = ":")
+AMP_freq = AMP_freq %>% select(Start, MAF) %>% rename("AMP_MAF" = MAF) 
+
+mergename$Start = as.character(mergename$Start)
+mergename_freq1 = left_join(mergename, AMP_freq)
+
+UKB_freq = read.table("UKB_963_23andme.frq", header = T, sep = "")
+UKB_freq = UKB_freq %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), sep = ":")
+UKB_freq = UKB_freq %>% select(Start, MAF) %>% rename("UKB_MAF" = MAF) 
+mergename_freq1_2 = left_join(mergename_freq1, UKB_freq)
+
+# re-arrange file a bi
+mergename_freq1_2 = mergename_freq1_2 %>% select(Chr:assay.name, Gene.refGene, pvalue:p.batch, AMP_MAF, N_INFORMATIVE_AMP_score:PVALUE_AMP_score, UKB_MAF, N_INFORMATIVE_UKB_ALL_score:PVALUE_UKB_SIBLING_CONTROL_score) 
+
+write.table(mergename_freq1_2, "963_variants_score_AMP_UKB_wide.txt", row.names = F, sep = "\t", quote = F)
+
+```
 
 
