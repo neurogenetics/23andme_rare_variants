@@ -1,4 +1,4 @@
-## Extract 1091 variants from internal data sets
+## Extract 963 variants from internal data sets
 - Vanessa
 
 ---
