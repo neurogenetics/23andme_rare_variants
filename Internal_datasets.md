@@ -12,7 +12,7 @@ Connect to biowulf and start node
 ```
 sinteractive --mem=100g --cpus-per-task=20
 # new folder
-/data/CARD/projects/23andme_annotation/variants_in_internal_datasets
+cd /data/CARD/projects/23andme_annotation/variants_in_internal_datasets
 ```
 
 Create new variant file from old and new 23and me
@@ -126,6 +126,24 @@ Calculating allele frequencies... done.
 Total genotyping rate is 0.999999.
 --freq: Allele frequencies (founders only) written to AMP_PD_963_23andme.frq .
 ```
+Frequency file for cases and controls
+```
+plink --bfile AMP_PD_963_23andme --assoc --pheno /data/CARD/PD/AMP_NIH/no_relateds/COV_PD_NIH_AMPv2.5_samplestoKeep_EuroOnly_noDups_noNIHDups_wPheno_wSex_no_cousins.txt --pheno-name PD_PHENO --out AMP_PD_963_23andme
+
+##
+386449 MB RAM detected; reserving 193224 MB for main workspace.
+367 variants loaded from .bim file.
+7986 people (4345 males, 3641 females) loaded from .fam.
+7986 phenotype values present after --pheno.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 7986 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is 0.999999.
+367 variants and 7986 people pass filters and QC.
+Among remaining phenotypes, 3376 are cases and 4610 are controls.
+Writing C/C --assoc report to plink.assoc ... done.
+```
+
 Run association test in rvtest
 ```
 # convert plink files to vcf for rvtest
@@ -227,6 +245,64 @@ Total genotyping rate is 0.999133.
 
 ```
 
+Frequency file for different phenotype groups
+```
+plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.txt --pheno-name PHENO --out UKB_963_23andme_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC
+
+##
+386449 MB RAM detected; reserving 193224 MB for main workspace.
+843 variants loaded from .bim file.
+200648 people (0 males, 0 females, 200648 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to
+UKB_963_23andme_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.nosex .
+0 phenotype values present after --pheno.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 200648 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is 0.999133.
+843 variants and 200648 people pass filters and QC.
+Note: No phenotypes present.
+Warning: Skipping --assoc/--model since less than two phenotypes are present.
+
+
+##### PD_CASE_CONTROL
+plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_PD_CASE_CONTROL_2021_with_PC.txt --pheno-name PHENO --out UKB_963_23andme_PD_CASE_CONTROL_2021_with_PC
+
+##
+386449 MB RAM detected; reserving 193224 MB for main workspace.
+843 variants loaded from .bim file.
+200648 people (0 males, 0 females, 200648 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to UKB_963_23andme_PD_CASE_CONTROL_2021_with_PC.nosex
+.
+0 phenotype values present after --pheno.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 200648 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is 0.999133.
+843 variants and 200648 people pass filters and QC.
+Note: No phenotypes present.
+Warning: Skipping --assoc/--model since less than two phenotypes are present.
+
+
+##### PD_PARENT_CONTROL_2021_with_PC
+plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_PD_PARENT_CONTROL_2021_with_PC.txt --pheno-name PHENO --out UKB_963_23andme_PD_PARENT_CONTROL_2021_with_PC
+
+##
+386449 MB RAM detected; reserving 193224 MB for main workspace.
+843 variants loaded from .bim file.
+200648 people (0 males, 0 females, 200648 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to
+UKB_963_23andme_PD_PARENT_CONTROL_2021_with_PC.nosex .
+0 phenotype values present after --pheno.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 200648 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is 0.999133.
+843 variants and 200648 people pass filters and QC.
+Note: No phenotypes present.
+Warning: Skipping --assoc/--model since less than two phenotypes are present.
+```
+
 Run association test in rvtest
 ```
 # convert binary files to vcf for input in rvtest
@@ -248,7 +324,15 @@ Run rvtests using different phenotype and covariate files (4 different)
 ```
 module load rvtests
 
-# using UKB_EXOM_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.t
+# using UKB_EXOM_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.txt
+# # A tibble: 4 × 2
+  PHENO_NAME     n
+  <chr>      <int>
+1 CONTROL    38051
+2 parent      6033
+3 PD          1105
+4 sibling      668
+
 rvtest --inVcf UKB_963_23andme.vcf.gz --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.txt --pheno-name PHENO --out UKB_963_23andme_withcovars_score_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC --single wald,score --covar /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.txt --covar-name GENETIC_SEX,AGE_OF_RECRUIT,TOWNSEND,PC1,PC2,PC3,PC4,PC5
 
 ## new files
@@ -258,6 +342,12 @@ UKB_963_23andme_withcovars_score_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.SingleWa
 
 
 # using UKB_EXOM_PD_CASE_CONTROL_2021_with_PC.txt
+# # A tibble: 2 × 2
+  PHENO_NAME     n
+  <chr>      <int>
+1 CONTROL     5643
+2 PD          1105
+
 rvtest --inVcf UKB_963_23andme.vcf.gz --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_PD_CASE_CONTROL_2021_with_PC.txt --pheno-name PHENO --out UKB_963_23andme_withcovars_score_PD_CASE_CONTROL_2021_with_PC --single wald,score --covar /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_PD_CASE_CONTROL_2021_with_PC.txt --covar-name GENETIC_SEX,AGE_OF_RECRUIT,TOWNSEND,PC1,PC2,PC3,PC4,PC5
 
 ## new files
@@ -267,21 +357,18 @@ UKB_963_23andme_withcovars_score_PD_CASE_CONTROL_2021_with_PC.SingleWald.assoc
 
 
 # using UKB_EXOM_PD_PARENT_CONTROL_2021_with_PC.txt
+# # A tibble: 2 × 2
+  PHENO_NAME     n
+  <chr>      <int>
+1 CONTROL    28945
+2 parent      6033
+
 rvtest --inVcf UKB_963_23andme.vcf.gz --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_PD_PARENT_CONTROL_2021_with_PC.txt --pheno-name PHENO --out UKB_963_23andme_withcovars_score_PD_PARENT_CONTROL_2021_with_PC --single wald,score --covar /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_PD_PARENT_CONTROL_2021_with_PC.txt --covar-name GENETIC_SEX,AGE_OF_RECRUIT,TOWNSEND,PC1,PC2,PC3,PC4,PC5
 
 ## new files 
 UKB_963_23andme_withcovars_score_PD_PARENT_CONTROL_2021_with_PC.log
 UKB_963_23andme_withcovars_score_PD_PARENT_CONTROL_2021_with_PC.SingleScore.assoc
 UKB_963_23andme_withcovars_score_PD_PARENT_CONTROL_2021_with_PC.SingleWald.assoc
-
-
-# using UKB_EXOM_PD_SIBLING_CONTROL_2021_with_PC.txt
-rvtest --inVcf UKB_963_23andme.vcf.gz --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_PD_SIBLING_CONTROL_2021_with_PC.txt --pheno-name PHENO --out UKB_963_23andme_withcovars_score_PD_SIBLING_CONTROL_2021_with_PC --single wald,score --covar /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_PD_SIBLING_CONTROL_2021_with_PC.txt --covar-name GENETIC_SEX,AGE_OF_RECRUIT,TOWNSEND,PC1,PC2,PC3,PC4,PC5
-
-## new files
-UKB_963_23andme_withcovars_score_PD_SIBLING_CONTROL_2021_with_PC.log
-UKB_963_23andme_withcovars_score_PD_SIBLING_CONTROL_2021_with_PC.SingleScore.assoc
-UKB_963_23andme_withcovars_score_PD_SIBLING_CONTROL_2021_with_PC.SingleWald.assoc
 ```
 
 ## Merge files together
@@ -365,20 +452,6 @@ UKB_PARENT_CTRL_score = UKB_PARENT_CTRL_score %>% select(Chr, Start, End, REF, A
 UKB_PARENT_CTRL_score = UKB_PARENT_CTRL_score %>% rename_with(~paste0(., "_UKB_PARENT_CONTROL_score"), N_INFORMATIVE:PVALUE)
 dim(UKB_PARENT_CTRL_score)
 # 843  14
-
-
-#####
-UKB_SIBLING_CTR_score = read.table("UKB_963_23andme_withcovars_score_PD_SIBLING_CONTROL_2021_with_PC.SingleScore.assoc", sep = "\t", header = T)
-
-# change
-UKB_SIBLING_CTR_score = UKB_SIBLING_CTR_score %>% rename("Chr" = CHROM, "Start" = POS)
-UKB_SIBLING_CTR_score$End = UKB_SIBLING_CTR_score$Start
-UKB_SIBLING_CTR_score$Chr = paste0('chr', UKB_SIBLING_CTR_score$Chr)
-UKB_SIBLING_CTR_score = UKB_SIBLING_CTR_score %>% select(Chr, Start, End, REF, ALT, N_INFORMATIVE:PVALUE)
-UKB_SIBLING_CTR_score = UKB_SIBLING_CTR_score %>% rename_with(~paste0(., "_UKB_SIBLING_CONTROL_score"), N_INFORMATIVE:PVALUE)
-dim(UKB_SIBLING_CTR_score)
-# 843  14
-
 ```
 
 
@@ -400,20 +473,16 @@ merge4 = left_join(merge3, UKB_PARENT_CTRL_score)
 dim(merge4)
 # 963 71
 
-merge5 = left_join(merge4, UKB_SIBLING_CTR_score)
-dim(merge5)
-# 963 80
-
 # check for merging errors, i.e. are any columns all NA
-sapply(merge5, function(x)all(is.na(x)))
-# no, all good
+sapply(merge4, function(x)all(is.na(x)))
+# all good
 
-write.table(merge5, "963variants_23andme_AMPPD_UKB_cov_merged_score.txt", row.names = F, sep = "\t", quote= F)
+write.table(merge4, "963variants_23andme_AMPPD_UKB_cov_merged_score.txt", row.names = F, sep = "\t", quote= F)
 ```
 
 Write variant file for annotation
 ```
-to_annotate = merge5 %>% select(Chr, Start, End, REF, ALT)
+to_annotate = merge4 %>% select(Chr, Start, End, REF, ALT)
 names(to_annotate) = NULL
 write.table(to_annotate, "963variants_to_annotate.txt", sep = "\t", row.names =F, quote= F)
 ```
@@ -443,7 +512,7 @@ library(tidyr)
 variants = read.table("963variants_23andme_AMPPD_UKB_cov_merged_score.txt", header = T, sep = "\t")
 
 Genenames = read.table("963variants_23_AMP_UKB.hg38_multianno.txt", header = T, sep = "\t")
-Genenames = Genenames %>% select(Start, Gene.refGene)
+Genenames = Genenames %>% select(Start, Gene.refGene, AAChange.refGene)
 
 #merge Gene name onto list
 mergename = left_join(variants, Genenames)
@@ -463,7 +532,7 @@ UKB_freq = UKB_freq %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), s
 UKB_freq = UKB_freq %>% select(Start, MAF) %>% rename("UKB_MAF" = MAF) 
 mergename_freq1_2 = left_join(mergename_freq1, UKB_freq)
 
-# re-arrange file a bi
+# re-arrange file a bit
 mergename_freq1_2 = mergename_freq1_2 %>% select(Chr:assay.name, Gene.refGene, pvalue:p.batch, AMP_MAF, N_INFORMATIVE_AMP_score:PVALUE_AMP_score, UKB_MAF, N_INFORMATIVE_UKB_ALL_score:PVALUE_UKB_SIBLING_CONTROL_score) 
 
 write.table(mergename_freq1_2, "963_variants_score_AMP_UKB_wide.txt", row.names = F, sep = "\t", quote = F)
