@@ -128,7 +128,7 @@ Total genotyping rate is 0.999999.
 ```
 Frequency file for cases and controls
 ```
-plink --bfile AMP_PD_963_23andme --assoc --pheno /data/CARD/PD/AMP_NIH/no_relateds/COV_PD_NIH_AMPv2.5_samplestoKeep_EuroOnly_noDups_noNIHDups_wPheno_wSex_no_cousins.txt --pheno-name PD_PHENO --out AMP_PD_963_23andme
+plink --bfile AMP_PD_963_23andme --assoc --pheno /data/CARD/PD/AMP_NIH/no_relateds/COV_PD_NIH_AMPv2.5_samplestoKeep_EuroOnly_noDups_noNIHDups_wPheno_wSex_no_cousins.txt --pheno-name PD_PHENO --out AMP_PD_963_23andme_pheno
 
 ##
 386449 MB RAM detected; reserving 193224 MB for main workspace.
@@ -141,7 +141,8 @@ Calculating allele frequencies... done.
 Total genotyping rate is 0.999999.
 367 variants and 7986 people pass filters and QC.
 Among remaining phenotypes, 3376 are cases and 4610 are controls.
-Writing C/C --assoc report to plink.assoc ... done.
+Writing C/C --assoc report to AMP_PD_963_23andme_pheno.assoc ...
+done.
 ```
 
 Run association test in rvtest
@@ -178,6 +179,12 @@ AMP_PD_963_23andme_withcovars_score.SingleWald.assoc
 /data/CARD/UKBIOBANK/EXOME_DATA_200K/PVCF_FILES/MERGED_UKB_first_pass.*
 # these files are in plink2 format - convert
 
+## .psam IDs
+#IID	SEX
+-000001	NA
+-000002	NA
+
+##
 module load plink/2
 plink2 --pfile /data/CARD/UKBIOBANK/EXOME_DATA_200K/PVCF_FILES/MERGED_UKB_first_pass --make-bed --out MERGED_UKB_first_pass
 
@@ -227,14 +234,21 @@ Note: No phenotypes present.
 ... done.
 ```
 
+This file needs to be fixed because of an odd format where column 1 is all zeros (column 1 & 2 need to be same)
+```
+cut -d " " -f 2 UKB_963_23andme.fam > column2.txt
+cut -d " " -f 2,3,4,5,6 UKB_963_23andme.fam > column23456.txt
+scp UKB_963_23andme.fam UKB_963_23andme_ORIGINAL.fam
+paste column2.txt column23456.txt > UKB_963_23andme.fam
+```
+
+
 Generate frequency file
 ```
 module load plink
 plink --bfile UKB_963_23andme --freq --out UKB_963_23andme
 
 ##
-386449 MB RAM detected; reserving 193224 MB for main workspace.
-843 variants loaded from .bim file.
 200648 people (0 males, 0 females, 200648 ambiguous) loaded from .fam.
 Ambiguous sex IDs written to UKB_963_23andme.nosex .
 Using 1 thread (no multithreaded calculations invoked).
@@ -242,12 +256,11 @@ Before main variant filters, 200648 founders and 0 nonfounders present.
 Calculating allele frequencies... done.
 Total genotyping rate is 0.999133.
 --freq: Allele frequencies (founders only) written to UKB_963_23andme.frq .
-
 ```
 
 Frequency file for different phenotype groups
 ```
-plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.txt --pheno-name PHENO --out UKB_963_23andme_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC
+plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.txt --pheno-name PHENO --allow-no-sex --out UKB_963_23andme_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC
 
 ##
 386449 MB RAM detected; reserving 193224 MB for main workspace.
@@ -255,18 +268,21 @@ plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DAT
 200648 people (0 males, 0 females, 200648 ambiguous) loaded from .fam.
 Ambiguous sex IDs written to
 UKB_963_23andme_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.nosex .
-0 phenotype values present after --pheno.
+45857 phenotype values present after --pheno.
 Using 1 thread (no multithreaded calculations invoked).
 Before main variant filters, 200648 founders and 0 nonfounders present.
 Calculating allele frequencies... done.
 Total genotyping rate is 0.999133.
 843 variants and 200648 people pass filters and QC.
-Note: No phenotypes present.
-Warning: Skipping --assoc/--model since less than two phenotypes are present.
+Among remaining phenotypes, 7806 are cases and 38051 are controls.  (154791
+phenotypes are missing.)
+Writing C/C --assoc report to
+UKB_963_23andme_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.assoc ...
+done.
 
 
 ##### PD_CASE_CONTROL
-plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_PD_CASE_CONTROL_2021_with_PC.txt --pheno-name PHENO --out UKB_963_23andme_PD_CASE_CONTROL_2021_with_PC
+plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_PD_CASE_CONTROL_2021_with_PC.txt --pheno-name PHENO --allow-no-sex --out UKB_963_23andme_PD_CASE_CONTROL_2021_with_PC
 
 ##
 386449 MB RAM detected; reserving 193224 MB for main workspace.
@@ -274,18 +290,21 @@ plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DAT
 200648 people (0 males, 0 females, 200648 ambiguous) loaded from .fam.
 Ambiguous sex IDs written to UKB_963_23andme_PD_CASE_CONTROL_2021_with_PC.nosex
 .
-0 phenotype values present after --pheno.
+6748 phenotype values present after --pheno.
 Using 1 thread (no multithreaded calculations invoked).
 Before main variant filters, 200648 founders and 0 nonfounders present.
 Calculating allele frequencies... done.
 Total genotyping rate is 0.999133.
 843 variants and 200648 people pass filters and QC.
-Note: No phenotypes present.
-Warning: Skipping --assoc/--model since less than two phenotypes are present.
+Among remaining phenotypes, 1105 are cases and 5643 are controls.  (193900
+phenotypes are missing.)
+Writing C/C --assoc report to
+UKB_963_23andme_PD_CASE_CONTROL_2021_with_PC.assoc ...
+done.
 
 
 ##### PD_PARENT_CONTROL_2021_with_PC
-plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_PD_PARENT_CONTROL_2021_with_PC.txt --pheno-name PHENO --out UKB_963_23andme_PD_PARENT_CONTROL_2021_with_PC
+plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_PD_PARENT_CONTROL_2021_with_PC.txt --pheno-name PHENO --allow-no-sex --out UKB_963_23andme_PD_PARENT_CONTROL_2021_with_PC
 
 ##
 386449 MB RAM detected; reserving 193224 MB for main workspace.
@@ -293,14 +312,17 @@ plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DAT
 200648 people (0 males, 0 females, 200648 ambiguous) loaded from .fam.
 Ambiguous sex IDs written to
 UKB_963_23andme_PD_PARENT_CONTROL_2021_with_PC.nosex .
-0 phenotype values present after --pheno.
+34978 phenotype values present after --pheno.
 Using 1 thread (no multithreaded calculations invoked).
 Before main variant filters, 200648 founders and 0 nonfounders present.
 Calculating allele frequencies... done.
 Total genotyping rate is 0.999133.
 843 variants and 200648 people pass filters and QC.
-Note: No phenotypes present.
-Warning: Skipping --assoc/--model since less than two phenotypes are present.
+Among remaining phenotypes, 6033 are cases and 28945 are controls.  (165670
+phenotypes are missing.)
+Writing C/C --assoc report to
+UKB_963_23andme_PD_PARENT_CONTROL_2021_with_PC.assoc ...
+done.
 ```
 
 Run association test in rvtest
@@ -516,27 +538,158 @@ Genenames = Genenames %>% select(Start, Gene.refGene, AAChange.refGene)
 
 #merge Gene name onto list
 mergename = left_join(variants, Genenames)
+dim(mergename)
+# 963 73
 ```
 
 Add frequencies
 ```
+# MAF for AMP
 AMP_freq = read.table("AMP_PD_963_23andme.frq", header = T, sep = "")
+| Chr | SNP              | A1 | A2 | MAF       | NCHROBS |
+|-----|------------------|----|----|-----------|---------|
+| 1   | chr1:7965399:G:A | A  | G  | 0.0001878 | 15972   |
+
+## change layout
 AMP_freq = AMP_freq %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), sep = ":")
-AMP_freq = AMP_freq %>% select(Start, MAF) %>% rename("AMP_MAF" = MAF) 
+AMP_freq = AMP_freq %>% select(Start, MAF, A1, A2) %>% rename("AMP_MAF" = MAF)
 
 mergename$Start = as.character(mergename$Start)
 mergename_freq1 = left_join(mergename, AMP_freq)
+mergename_freq1 %>% group_by(Start) %>% tally() %>% filter(n>1)
+# A tibble: 1 × 2
+  Start        n
+  <chr>    <int>
+1 40322386     2
 
+dim(mergename_freq1)
+# 964 74
+
+# MAF for phenotypes
+AMP_phenoMAF = read.table("AMP_PD_963_23andme_pheno.assoc", header = T, sep = "")
+| CHR | SNP              | BP      | A1 | F_A       | F_U       | A2 | CHISQ     | P      | OR     |
+|-----|------------------|---------|----|-----------|-----------|----|-----------|--------|--------|
+| 1   | chr1:7965399:G:A | 7965399 | A  | 0.0001481 | 0.0002169 | G  | 9.829e-02 | 0.7539 | 0.6827 |
+
+AMP_phenoMAF = AMP_phenoMAF %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), sep = ":")
+AMP_phenoMAF$End = AMP_phenoMAF$Start
+AMP_phenoMAF = AMP_phenoMAF %>% select(chr, Start, End, A1, A2, F_A, F_U, CHISQ, P, OR)
+AMP_phenoMAF = AMP_phenoMAF %>% rename_with(~paste0(., "_AMP_PhenoFreq"), F_A:OR)
+| chr  | Start   | End     | A1 | A2 | F_A_AMP_PhenoFreq | F_U_AMP_PhenoFreq | CHISQ_AMP_PhenoFreq | P_AMP_PhenoFreq | OR_AMP_PhenoFreq |
+|------|---------|---------|----|----|-------------------|-------------------|---------------------|-----------------|------------------|
+| chr1 | 7965399 | 7965399 | A  | G  | 0.0001481         | 0.0002169         | 9.829e-02           | 0.7539          | 0.6827           |
+
+mergename_freq1$End = as.character(mergename_freq1$End)
+mergename_freq2 = left_join(mergename_freq1, AMP_phenoMAF)
+
+mergename_freq2 %>% group_by(Start) %>% tally() %>% filter(n>1)
+# A tibble: 1 × 2
+  Start        n
+  <chr>    <int>
+1 40322386     2
+
+dim(mergename_freq2)
+# 966 81
+
+---------------------------------------------
 UKB_freq = read.table("UKB_963_23andme.frq", header = T, sep = "")
+| CHR | SNP              | A1 | A2 | MAF       | NCHROBS |
+|-----|------------------|----|----|-----------|---------|
+| 1   | chr1:7965399:G:A | A  | G  | 3.040e-04 | 401272  |
+
 UKB_freq = UKB_freq %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), sep = ":")
-UKB_freq = UKB_freq %>% select(Start, MAF) %>% rename("UKB_MAF" = MAF) 
-mergename_freq1_2 = left_join(mergename_freq1, UKB_freq)
+UKB_freq = UKB_freq %>% select(Start, MAF, A1, A2) %>% rename("UKB_MAF" = MAF) 
+| Start   | UKB_MAF   | A1 | A2 |
+|---------|-----------|----|----|
+| 7965399 | 3.040e-04 | A  | G  |
 
-# re-arrange file a bit
-mergename_freq1_2 = mergename_freq1_2 %>% select(Chr:assay.name, Gene.refGene, pvalue:p.batch, AMP_MAF, N_INFORMATIVE_AMP_score:PVALUE_AMP_score, UKB_MAF, N_INFORMATIVE_UKB_ALL_score:PVALUE_UKB_SIBLING_CONTROL_score) 
+mergename_freq3 = left_join(mergename_freq2, UKB_freq)
+mergename_freq3 %>% group_by(Start) %>% tally() %>% filter(n>1)
+# A tibble: 1 × 2
+  Start        n
+  <chr>    <int>
+1 40322386     2
 
-write.table(mergename_freq1_2, "963_variants_score_AMP_UKB_wide.txt", row.names = F, sep = "\t", quote = F)
+dim(mergename_freq3)
+# 964 83
+
+---------------------------------------------
+UKB_ALLPD = read.table("UKB_963_23andme_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.assoc", header = T, sep = "")
+| CHR | SNP              | BP      | A1 | F_A       | F_U      | A2 | CHISQ | P  | OR |
+|-----|------------------|---------|----|-----------|----------|----|-------|----|----|
+| 1   | chr1:7965399:G:A | 7965399 | A  | 0.0000000 | 0.000000 | G  | NA    | NA | NA |
+
+UKB_ALLPD = UKB_ALLPD %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), sep = ":")
+UKB_ALLPD$End = UKB_ALLPD$Start
+UKB_ALLPD = UKB_ALLPD %>% select(chr, Start, End, A1, A2, F_A, F_U, CHISQ, P, OR)
+UKB_ALLPD = UKB_ALLPD %>% rename_with(~paste0(., "_UKB_Pheno_ALLPD_Freq"), F_A:OR)
+| chr  | Start   | End     | A1 | A2 | F_A_UKB_Pheno_ALLPD_Freq | F_U_UKB_Pheno_ALLPD_Freq | CHISQ_UKB_Pheno_ALLPD_Freq | P_UKB_Pheno_ALLPD_Freq | OR_UKB_Pheno_ALLPD_Freq |
+|------|---------|---------|----|----|--------------------------|--------------------------|----------------------------|------------------------|-------------------------|
+| chr1 | 7965399 | 7965399 | A  | G  | 0.0000000                | 0.000000                 | NA                         | NA                     | NA                      |
+
+mergename_freq3$End = as.character(mergename_freq3$End)
+mergename_freq4 = left_join(mergename_freq3, UKB_ALLPD)
+
+mergename_freq4 %>% group_by(Start) %>% tally() %>% filter(n>1)
+# A tibble: 1 × 2
+  Start        n
+  <chr>    <int>
+1 40322386     2
+
+dim(mergename_freq4)
+# 964 88
+
+---------------------------------------------
+UKB_CASE_CTRL= read.table("UKB_963_23andme_PD_CASE_CONTROL_2021_with_PC.assoc", sep = "", header = T)
+# same layout as previous
+
+UKB_CASE_CTRL = UKB_CASE_CTRL %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), sep = ":")
+UKB_CASE_CTRL$End = UKB_CASE_CTRL$Start
+UKB_CASE_CTRL = UKB_CASE_CTRL %>% select(chr, Start, End, A1, A2, F_A, F_U, CHISQ, P, OR)
+UKB_CASE_CTRL = UKB_CASE_CTRL %>% rename_with(~paste0(., "_UKB_Pheno_CASECTRL_Freq"), F_A:OR)
+
+mergename_freq4$End = as.character(mergename_freq4$End)
+mergename_freq5 = left_join(mergename_freq4, UKB_CASE_CTRL)
+
+mergename_freq5 %>% group_by(Start) %>% tally() %>% filter(n>1)
+# A tibble: 1 × 2
+  Start        n
+  <chr>    <int>
+1 40322386     2
+
+dim(mergename_freq5)
+# 964 93
+
+---------------------------------------------
+UKB_PARENT_CTRL = read.table("UKB_963_23andme_PD_PARENT_CONTROL_2021_with_PC.assoc", sep ="", header = T)
+# layout same as previous
+
+UKB_PARENT_CTRL = UKB_PARENT_CTRL %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), sep = ":")
+UKB_PARENT_CTRL$End = UKB_PARENT_CTRL$Start
+UKB_PARENT_CTRL = UKB_PARENT_CTRL %>% select(chr, Start, End, A1, A2, F_A, F_U, CHISQ, P, OR)
+UKB_PARENT_CTRL = UKB_PARENT_CTRL %>% rename_with(~paste0(., "_UKB_Pheno_PARENTCTRL_Freq"), F_A:OR)
+
+mergename_freq5$End = as.character(mergename_freq5$End)
+mergename_freq6 = left_join(mergename_freq5, UKB_PARENT_CTRL)
+
+mergename_freq6 %>% group_by(Start) %>% tally() %>% filter(n>1)
+# A tibble: 1 × 2
+  Start        n
+  <chr>    <int>
+1 40322386     2
+
+dim(mergename_freq6)
+# 964 98
 
 ```
 
+Re-arrange file
+```
+colnames(mergename_freq6)
+mergename_freq6 = mergename_freq6 %>% select(Chr:assay.name, Gene.refGene, AAChange.refGene, pvalue:p.batch, AMP_MAF, N_INFORMATIVE_AMP_score:PVALUE_AMP_score, UKB_MAF, N_INFORMATIVE_UKB_ALL_score:OR_UKB_Pheno_PARENTCTRL_Freq) 
+
+write.table(mergename_freq6, "963_variants_score_AMP_UKB_wide.txt", row.names = F, sep = "\t", quote = F)
+```
+
+DONE
 
