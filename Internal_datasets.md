@@ -542,7 +542,7 @@ dim(mergename)
 # 963 73
 ```
 
-Add frequencies
+Add AMP frequencies
 ```
 # MAF for AMP
 AMP_freq = read.table("AMP_PD_963_23andme.frq", header = T, sep = "")
@@ -590,8 +590,10 @@ mergename_freq2 %>% group_by(Start) %>% tally() %>% filter(n>1)
 
 dim(mergename_freq2)
 # 966 81
+```
 
----------------------------------------------
+Add UKB frequency (phenotype and MAF) files
+```
 UKB_freq = read.table("UKB_963_23andme.frq", header = T, sep = "")
 | CHR | SNP              | A1 | A2 | MAF       | NCHROBS |
 |-----|------------------|----|----|-----------|---------|
