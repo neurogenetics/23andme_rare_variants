@@ -5,7 +5,7 @@
 ### Quick Description: 
 Extracting 963 variants (available in GRCH38 from 23andme data) from internal data sets and generate association stats on those variants only.
 Follow Mary's script for burden testing but instead of burden testing, do --score test
-
+Files can also be found here: https://drive.google.com/drive/u/1/folders/18kISsSBgz7iD9Gu9000tQupiY-SD1TOH
 Extracted variants from 23andme in GRCh37, AMP-PD are in GRCh38
 
 Connect to biowulf and start node
