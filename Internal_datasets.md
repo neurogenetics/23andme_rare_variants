@@ -690,6 +690,66 @@ Re-arrange file
 colnames(mergename_freq6)
 mergename_freq6 = mergename_freq6 %>% select(Chr:assay.name, Gene.refGene, AAChange.refGene, pvalue:p.batch, AMP_MAF, N_INFORMATIVE_AMP_score:PVALUE_AMP_score, UKB_MAF, N_INFORMATIVE_UKB_ALL_score:OR_UKB_Pheno_PARENTCTRL_Freq) 
 
+# clean AAChange.refGene column
+mergename_freq6 = read.table("963_variants_score_AMP_UKB_wide.txt", header = T, sep = "\t")
+mergename_freq6 %>% group_by(Gene.refGene) %>% tally() %>% arrange(desc(n)) %>% print(n=1# A tibble: 34 × 2
+
+# go through genes
+mergename_freq6 %>% filter(Gene.refGene == "TRPM7") %>% select(Gene.refGene, AAChange.refGene)
+
+   Gene.refGene     n
+   <chr>        <int>
+ 1 LRRK2          126 LRRK2:NM_198578
+ 2 GBA            116 PRKN:NM_004562 
+ 3 VPS13C         102 VPS13C:NM_020821
+ 4 POLG            97 POLG:NM_001126131, POLG:NM_002693
+ 5 PLA2G6          59 PLA2G6:NM_001004426, PLA2G6:NM_001349868
+ 6 PINK1           54 PINK1:NM_032409
+ 7 PRKN            54 PRKN:NM_004562
+ 8 ATP13A2         51 ATP13A2:NM_001141974
+ 9 EIF4G1          42 EIF4G1:NM_001194947
+10 DNAJC13         41 DNAJC13:NM_001329126, DNAJC13:NM_015268
+11 SYNJ1           41 SYNJ1:NM_003895
+12 LRP10           25 LRP10:NM_014045
+13 GIGYF2          24 GIGYF2:NM_001103148, GIGYF2:NM_001103146, GIGYF2:NM_001103147
+14 FBXO7           22 FBXO7:NM_001033024, FBXO7:NM_012179
+15 DNAJC6          21 DNAJC6:NM_001256864, DNAJC6:NM_001256865
+16 HTRA2           10 HTRA2:NM_013247
+17 PARK7           10 PARK7:NM_001123377, PARK7:NM_007262
+18 VPS35           10 VPS35:NM_018206
+19 TMEM230          9 TMEM230:NM_001330987, TMEM230:NM_001009923
+20 SLC6A3           7 SLC6A3:NM_001044
+21 SNCA             7 SNCA:NM_000345, SNCA:NM_001146054, SNCA:NM_001146055, SNCA:NM_001375286, SNCA:NM_001375288
+22 SNCAIP           7 SNCAIP:NM_001308100
+23 PINK1-AS         6 NONE (not actually of interest to us)
+24 UCHL1            5 UCHL1:NM_004181
+25 TNR              4 TNR:NM_003285
+26 MAPT             3 MAPT:NM_001123067, MAPT:NM_001123066
+27 RAB39B           2 RAB39B:NM_171998
+28 SNCB             2 SNCB:NM_001318036, SNCB:NM_001318034, SNCB:NM_003085, SNCB:NM_001001502, SNCB:NM_001363140
+29 TNK2             2 TNK2:NM_001308046, TNK2:NM_001382271, TNK2:NM_005781, TNK2:NM_001010938, TNK2:NM_001382272, TNK2:NM_001382273, TNK2:NM_001382274
+30 FBXO7;FBXO7      1 FBXO7:NM_001033024, FBXO7:NM_012179
+31 GLUD2            1 GLUD2:NM_012084
+32 MRE11            1 MRE11:NM_001330347, MRE11:NM_005590, MRE11:NM_005591
+33 NR4A2            1 NR4A2:NM_006186, NR4A2:NM_173173
+34 TRPM7            1 TRPM7:NM_001301212, TRPM7:NM_017672
+
+mergename_freq6 %>% mutate(AAChange.refGene = if_else(Gene.refGene == "LRRK2", "LRRK2:NM_198578",
+if_else(Gene.refGene == "GBA", "PRKN:NM_004562",
+if_else(Gene.refGene == "VPS13C", "VPS13C:NM_020821",
+if_else(Gene.refGene == "POLG", "POLG:NM_001126131, POLG:NM_002693",
+if_else(Gene.refGene == "PLA2G6", "PLA2G6:NM_001004426, PLA2G6:NM_001349868",
+if_else(Gene.refGene == "PINK1", "PINK1:NM_032409",
+if_else(Gene.refGene == "PRKN", "PRKN:NM_004562",
+if_else(Gene.refGene == "ATP13A2", "ATP13A2:NM_001141974",
+if_else(Gene.refGene == "EIF4G1", "EIF4G1:NM_001194947",
+if_else(Gene.refGene == "DNAJC13", "DNAJC6:NM_001256864, DNAJC6:NM_001256865",
+if_else(Gene.refGene == "SYNJ1", "SYNJ1:NM_003895",
+if_else(Gene.refGene == "LRP10", "LRP10:NM_014045",
+if_else(Gene.refGene == "GIGYF2", "GIGYF2:NM_001103148, GIGYF2:NM_001103146, GIGYF2:NM_001103147",
+if_else(Gene.refGene == "FBXO7", "FBXO7:NM_001033024, FBXO7:NM_012179",
+if_else(Gene.refGene == "DNAJC6", "DNAJC6:NM_001256864, DNAJC6:NM_001256865"
+
 write.table(mergename_freq6, "963_variants_score_AMP_UKB_wide.txt", row.names = F, sep = "\t", quote = F)
 ```
 
