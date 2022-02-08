@@ -26,25 +26,34 @@ failed = read.table("results_for_collaborators_failed_qc.csv", header = T, sep =
 dim(failed)
 # 459 33
 
-old = read.table("results_for_collaborators.csv", sep = ",", header = T)
+old = read.table("/data/CARD/projects/23andme_annotation/results_for_collaborators.csv", sep = ",", header = T)
 dim(old)
 # 504 33
 
-fulljoin_old_failed = full_join(failed, old) # looks like they're all new
+fulljoin_old_failed = full_join(failed, old) 
+# looks like they're all new (distinct)
 dim(fulljoin_old_failed)
 # 963 33
 head(fulljoin_old_failed)
 fulljoin_old_failed %>% group_by(position) %>% tally() %>% filter(n>1) #no duplicates
+
+variants_1091 = read.table("List_1091variants_ID_only.txt", header = F, sep = "\t")
 
 write.table(fulljoin_old_failed, "results_collaborators_all_963.txt", row.names = F, quote = F, sep = "\t")
 
 # create file with only IDs, so I can grep them from data sets
 fulljoin_old_failed = fulljoin_old_failed %>% select(scaffold, position)
 fulljoin_old_failed = fulljoin_old_failed %>% unite(combo, c("scaffold", "position"), sep = ":")
-names(fulljoin_old_failed) = NULL
+names(fulljoin_old_failed) = "V1"
 head(fulljoin_old_failed)
 
-write.table(fulljoin_old_failed, "963_variants_in23andme_variants_IDs_only.txt", row.names = F, quote = F, sep = "\t")
+# check if these 23andme provided variants are all on our list
+antijoin = anti_join(fulljoin_old_failed, variants_1091)
+dim(antijoin)
+[1] 963   1
+
+names(antijoin) = NULL
+write.table(antijoin, "963_variants_in23andme_variants_IDs_only.txt", row.names = F, quote = F, sep = "\t")
 q()
 n
 ```
@@ -692,11 +701,12 @@ mergename_freq6 = mergename_freq6 %>% select(Chr:assay.name, Gene.refGene, AACha
 
 # clean AAChange.refGene column
 mergename_freq6 = read.table("963_variants_score_AMP_UKB_wide.txt", header = T, sep = "\t")
-mergename_freq6 %>% group_by(Gene.refGene) %>% tally() %>% arrange(desc(n)) %>% print(n=1# A tibble: 34 × 2
+mergename_freq6 %>% group_by(Gene.refGene) %>% tally() %>% arrange(desc(n)) %>% print(n=100)
 
 # go through genes
 mergename_freq6 %>% filter(Gene.refGene == "TRPM7") %>% select(Gene.refGene, AAChange.refGene)
 
+# A tibble: 34 × 2
    Gene.refGene     n
    <chr>        <int>
  1 LRRK2          126 LRRK2:NM_198578
@@ -734,21 +744,43 @@ mergename_freq6 %>% filter(Gene.refGene == "TRPM7") %>% select(Gene.refGene, AAC
 33 NR4A2            1 NR4A2:NM_006186, NR4A2:NM_173173
 34 TRPM7            1 TRPM7:NM_001301212, TRPM7:NM_017672
 
-mergename_freq6 %>% mutate(AAChange.refGene = if_else(Gene.refGene == "LRRK2", "LRRK2:NM_198578",
-if_else(Gene.refGene == "GBA", "PRKN:NM_004562",
-if_else(Gene.refGene == "VPS13C", "VPS13C:NM_020821",
-if_else(Gene.refGene == "POLG", "POLG:NM_001126131, POLG:NM_002693",
-if_else(Gene.refGene == "PLA2G6", "PLA2G6:NM_001004426, PLA2G6:NM_001349868",
-if_else(Gene.refGene == "PINK1", "PINK1:NM_032409",
-if_else(Gene.refGene == "PRKN", "PRKN:NM_004562",
-if_else(Gene.refGene == "ATP13A2", "ATP13A2:NM_001141974",
-if_else(Gene.refGene == "EIF4G1", "EIF4G1:NM_001194947",
-if_else(Gene.refGene == "DNAJC13", "DNAJC6:NM_001256864, DNAJC6:NM_001256865",
-if_else(Gene.refGene == "SYNJ1", "SYNJ1:NM_003895",
-if_else(Gene.refGene == "LRP10", "LRP10:NM_014045",
-if_else(Gene.refGene == "GIGYF2", "GIGYF2:NM_001103148, GIGYF2:NM_001103146, GIGYF2:NM_001103147",
-if_else(Gene.refGene == "FBXO7", "FBXO7:NM_001033024, FBXO7:NM_012179",
-if_else(Gene.refGene == "DNAJC6", "DNAJC6:NM_001256864, DNAJC6:NM_001256865"
+mergename_freq6 = mergename_freq6 %>% mutate(Gene.refGene = if_else(Gene.refGene == "FBXO7;FBXO7", "FBXO7", Gene.refGene))
+
+mergename_freq6 = mergename_freq6 %>% mutate(AAChange.refGene = if_else(Gene.refGene == "LRRK2", "LRRK2:NM_198578",
+                                                      if_else(Gene.refGene == "GBA", "PRKN:NM_004562",
+                                                              if_else(Gene.refGene == "VPS13C", "VPS13C:NM_020821",
+                                                                      if_else(Gene.refGene == "POLG", "POLG:NM_001126131, POLG:NM_002693",
+                                                                              if_else(Gene.refGene == "PLA2G6", "PLA2G6:NM_001004426, PLA2G6:NM_001349868",
+                                                                                      if_else(Gene.refGene == "PINK1", "PINK1:NM_032409",
+                                                                                              if_else(Gene.refGene == "PRKN", "PRKN:NM_004562",
+                                                                                                      if_else(Gene.refGene == "ATP13A2", "ATP13A2:NM_001141974",
+                                                                                                              if_else(Gene.refGene == "EIF4G1", "EIF4G1:NM_001194947",
+                                                                                                                      if_else(Gene.refGene == "DNAJC13", "DNAJC6:NM_001256864, DNAJC6:NM_001256865",
+                                                                                                                              if_else(Gene.refGene == "SYNJ1", "SYNJ1:NM_003895",
+                                                                                                                                      if_else(Gene.refGene == "LRP10", "LRP10:NM_014045",
+                                                                                                                                              if_else(Gene.refGene == "GIGYF2", "GIGYF2:NM_001103148, GIGYF2:NM_001103146, GIGYF2:NM_001103147",
+                                                                                                                                                      if_else(Gene.refGene == "FBXO7", "FBXO7:NM_001033024, FBXO7:NM_012179",
+                                                                                                                                                              if_else(Gene.refGene == "DNAJC6", "DNAJC6:NM_001256864, DNAJC6:NM_001256865",
+                                                                                                                                                                      if_else(Gene.refGene == "HTRA2", "HTRA2:NM_013247",
+                                                                                                                                                                              if_else(Gene.refGene == "PARK7", "PARK7:NM_001123377, PARK7:NM_007262",
+                                                                                                                                                                                      if_else(Gene.refGene == "VPS35", "VPS35:NM_018206",
+                                                                                                                                                                                              if_else(Gene.refGene == "TMEM230", "TMEM230:NM_001330987, TMEM230:NM_001009923",
+                                                                                                                                                                                                      if_else(Gene.refGene == "SLC6A3", "SLC6A3:NM_001044",
+                                                                                                                                                                                                              if_else(Gene.refGene == "SNCA", "SNCA:NM_000345, SNCA:NM_001146054, SNCA:NM_001146055, SNCA:NM_001375286, SNCA:NM_001375288",
+                                                                                                                                                                                                                      if_else(Gene.refGene == "SNCAIP", "SNCAIP:NM_001308100",
+                                                                                                                                                                                                                              if_else(Gene.refGene == "UCHL1", "UCHL1:NM_004181",
+                                                                                                                                                                                                                                      if_else(Gene.refGene == "TNR", "TNR:NM_003285",
+                                                                                                                                                                                                                                              if_else(Gene.refGene == "MAPT", "MAPT:NM_001123067, MAPT:NM_001123066",
+                                                                                                                                                                                                                                                      if_else(Gene.refGene == "RAB39B", "MAPT:NM_001123067, MAPT:NM_001123066",
+                                                                                                                                                                                                                                                              if_else(Gene.refGene == "SNCB", "SNCB:NM_001318036, SNCB:NM_001318034, SNCB:NM_003085, SNCB:NM_001001502, SNCB:NM_001363140",
+                                                                                                                                                                                                                                                                      if_else(Gene.refGene == "TNK2", "TNK2:NM_001308046, TNK2:NM_001382271, TNK2:NM_005781, TNK2:NM_001010938, TNK2:NM_001382272, TNK2:NM_001382273, TNK2:NM_001382274",
+                                                                                                                                                                                                                                                                              if_else(Gene.refGene == "FBXO7", "FBXO7:NM_001033024, FBXO7:NM_012179",
+                                                                                                                                                                                                                                                                                      if_else(Gene.refGene == "GLUD2", "GLUD2:NM_012084",
+                                                                                                                                                                                                                                                                                              if_else(Gene.refGene == "MRE11", "MRE11:NM_001330347, MRE11:NM_005590, MRE11:NM_005591",
+                                                                                                                                                                                                                                                                                                      if_else(Gene.refGene == "NR4A2", "NR4A2:NM_006186, NR4A2:NM_173173",
+                                                                                                                                                                                                                                                                                                              if_else(Gene.refGene == "TRPM7", "TRPM7:NM_001301212, TRPM7:NM_017672", ""))))))))))))))))))))))))))))))))))
+                                                                                                                                                                                                                                                                                                              
+mergename_freq6 %>% group_by(Gene.refGene, AAChange.refGene) %>% tally() %>% print(n=100)
 
 write.table(mergename_freq6, "963_variants_score_AMP_UKB_wide.txt", row.names = F, sep = "\t", quote = F)
 ```
