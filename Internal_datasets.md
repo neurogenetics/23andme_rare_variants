@@ -7,7 +7,7 @@ Extracting 963 variants (available in GRCH38 from 23andme data) from internal da
 Follow Mary's script for burden testing but instead of burden testing, do --score test
 Files can also be found here: https://drive.google.com/drive/u/1/folders/18kISsSBgz7iD9Gu9000tQupiY-SD1TOH
 Extracted variants from 23andme in GRCh37, AMP-PD are in GRCh38
-
+rv
 Connect to biowulf and start node
 ```
 sinteractive --mem=100g --cpus-per-task=20
@@ -180,6 +180,16 @@ rvtest --inVcf AMP_PD_963_23andme.vcf.gz --pheno /data/CARD/PD/AMP_NIH/no_relate
 AMP_PD_963_23andme_withcovars_score.log
 AMP_PD_963_23andme_withcovars_score.SingleScore.assoc
 AMP_PD_963_23andme_withcovars_score.SingleWald.assoc
+
+# Pheno file
+AMP_pheno %>% group_by(PD_PHENO) %>% tally()
+# A tibble: 2 × 2
+  PD_PHENO     n
+     <int> <int>
+1        1  4610 
+2        2  3376
+
+(1 = CONTROL, 2 = CASE)
 ```
 
 ### UKB
@@ -363,6 +373,13 @@ module load rvtests
 2 parent      6033
 3 PD          1105
 4 sibling      668
+
+# UKB_all %>% group_by(SEX) %>% tally()
+# A tibble: 2 × 2
+    SEX     n
+  <int> <int>
+1     1 22040
+2     2 23817
 
 rvtest --inVcf UKB_963_23andme.vcf.gz --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.txt --pheno-name PHENO --out UKB_963_23andme_withcovars_score_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC --single wald,score --covar /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.txt --covar-name GENETIC_SEX,AGE_OF_RECRUIT,TOWNSEND,PC1,PC2,PC3,PC4,PC5
 
