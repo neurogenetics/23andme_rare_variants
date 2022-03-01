@@ -190,9 +190,9 @@ metal my_METAL.txt
 ## Executing meta-analysis ...
 ## Complete results will be stored in file 'MY_META_AMP_UKB_23andme1.tbl'
 ## Column descriptions will be stored in file 'MY_META_AMP_UKB_23andme1.tbl.info'
-## Completed meta-analysis for 804 markers!
-## Smallest p-value is 3.78e-250 at marker 'chr12:40340400'
-```
+## Completed meta-analysis for 834 markers!
+## Smallest p-value is 1.52e-315 at marker 'chr12:40340400'
+
 
 Check output files
 ```
