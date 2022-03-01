@@ -13,12 +13,13 @@ sinteractive --mem=100g --cpus-per-task=20
 ```
 
 ### Prepare files
+To be honest - I don't quite know what this step is good for
 ```
 #write file for all --single score but do separate meta analysis
-cat *.SingleWald.assoc | grep -v 'N_INFORMATIVE' > allChrs_WALD_FILE.assoc 
+#cat *.SingleWald.assoc | grep -v 'N_INFORMATIVE' > allChrs_WALD_FILE.assoc 
 
 #write file for all --single wald but do separate meta analysis
-cat *.SingleScore.assoc | grep -v 'N_INFORMATIVE' > allChrs_SCORE_FILE.assoc 
+#cat *.SingleScore.assoc | grep -v 'N_INFORMATIVE' > allChrs_SCORE_FILE.assoc 
 ```
 
 Add weights (number of people) to 23andme file
@@ -40,37 +41,58 @@ andme %>% summarise_at(vars(N_controls, N_cases), funs(max), na.rm = T)
 [1] 3090507
 andme$N_INFORMATIVE = 3090507
 
+andme$markerID <- paste(andme$scaffold,andme$position, sep = ":")
+
 write.table(andme, "results_collaborators_all_963.txt", row.names= F, sep = "\t", quote =F)
 ```
 
-Edit layout WALD file and merge with info from 23andme
+Edit layout SCORE file and merge with info from 23andme
 ```
-assoc_wald = fread("allChrs_WALD_FILE.assoc")
-
-colnames(assoc_wald) <- c("CHROM","POS","REF","ALT","N_INFORMATIVE","Test","Beta","SE","Pvalue")
+# start with AMP file
+AMP = fread("AMP_PD_963_23andme_withcovars_score.SingleScore.assoc")
 
 #edit layout
-andme$markerID <- paste(andme$scaffold,andme$position, sep = ":")
-andme1 = andme %>% select(markerID, A1, A2, freq.b, avg.rsqr, src)
-assoc_wald$chr <- paste("chr",assoc_wald$CHROM, sep = "")
-assoc_wald$markerID <- paste(assoc_wald$chr,assoc_wald$POS, sep = ":")
-
-data <- left_join(assoc_wald, andme1)
-data = data %>% select(-c(CHROM, chr)) 
+AMP$chr <- paste("chr",AMP$CHROM, sep = "")
+AMP$markerID <- paste(AMP$chr,AMP$POS, sep = ":")
+AMP = AMP %>% select(-c(CHROM, chr)) 
 
 #filter steps
-data = data %>% filter(Beta <5 & Beta > -5 & !is.na(Pvalue))
+#data = data %>% filter(Beta <5 & Beta > -5 & !is.na(Pvalue))
 
-data$minorAllele <- ifelse(data$freq.b <= 0.5, as.character(data$ALT), as.character(data$REF))
-data$majorAllele <- ifelse(data$freq.b <= 0.5, as.character(data$REF), as.character(data$ALT))
+AMP$minorAllele <- ifelse(AMP$AF <= 0.5, as.character(AMP$ALT), as.character(AMP$REF))
+AMP$majorAllele <- ifelse(AMP$AF <= 0.5, as.character(AMP$REF), as.character(AMP$ALT))
 
-data$beta <- ifelse(data$freq.b <= 0.5, data$Beta, data$Beta*-1)
-data$se <- data$SE
-data$maf <- ifelse(data$freq.b <= 0.5, data$freq.b, 1 - data$freq.b)
-data$P <- data$Pvalue
-dat0 <- data[,c("markerID","minorAllele","majorAllele","beta","se","maf","P")]
+#data$beta <- ifelse(data$freq.b <= 0.5, data$Beta, data$Beta*-1)
+#data$se <- data$SE
+#data$maf <- ifelse(data$freq.b <= 0.5, data$freq.b, 1 - data$freq.b)
+#data$P <- data$Pvalue
+#dat0 <- data[,c("markerID","minorAllele","majorAllele","beta","se","maf","P")]
 
-write.table(dat0, "toMETA_WALD_AMP_UKB.txt", quote = F, sep = "\t", row.names = F)
+write.table(AMP, "toMETA_SCORE_AMP.txt", quote = F, sep = "\t", row.names = F)
+```
+
+Repeat for UKB
+```
+UKB = fread("UKB_963_23andme_withcovars_score_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.SingleScore.assoc")
+
+#edit layout
+UKB$chr <- paste("chr",UKB$CHROM, sep = "")
+UKB$markerID <- paste(UKB$chr,UKB$POS, sep = ":")
+UKB = UKB %>% select(-c(CHROM, chr)) 
+
+#filter steps
+#data = data %>% filter(Beta <5 & Beta > -5 & !is.na(Pvalue))
+
+UKB$minorAllele <- ifelse(UKB$AF <= 0.5, as.character(UKB$ALT), as.character(AMP$REF))
+UKB$majorAllele <- ifelse(UKB$AF <= 0.5, as.character(UKB$REF), as.character(AMP$ALT))
+
+#data$beta <- ifelse(data$freq.b <= 0.5, data$Beta, data$Beta*-1)
+#data$se <- data$SE
+#data$maf <- ifelse(data$freq.b <= 0.5, data$freq.b, 1 - data$freq.b)
+#data$P <- data$Pvalue
+#dat0 <- data[,c("markerID","minorAllele","majorAllele","beta","se","maf","P")]
+
+write.table(UKB, "toMETA_SCORE_UKBALL.txt", quote = F, sep = "\t", row.names = F)
 ```
 
 Edit 23andme
@@ -115,34 +137,6 @@ write.table(andme, "toMETA_23andme_summary.txt", row.names = F, sep = "\t", quot
 
 # Karl: I'd recommend keeping most of these thresholds, but experiment with relaxing p.date and p.batch. LRRK2 G2019S doesn't fail by much, so it may be sensible to use a slightly less stringent threshold there (instead of removing these filters altogether).
 ```
-
-SCORE test file (to be continued)
-```
-module load R
-R
-library(tidyverse)
-library(data.table)
-assoc_score = fread("allChrs_SCORE_FILE.assoc")
-
-colnames(assoc_score) <- c("CHROM","POS","REF","ALT","N_INFORMATIVE","AF", "U", "V", "STAT", "DIRECTION", "EFFECT", "SE", "PVALUE")
-# CHROM = Chromosome
-# POS = Position
-# REF = Reference allele
-# ALT = Alternate allele
-# N_INFORMATIVE = Number of samples analyzed for association
-# AF = Allele frequency
-# U = score statistics and their covariance matrix
-# V = score statistics and their covariance matrix
-# STAT = score statistics and their covariance matrix
-# DIRECTION = Direction of effect
-# EFFECT = Effect
-# SE = Standard error
-# PVALUE = P-value
-
-```
-
-
-
 ### Create metal file
 Adapted from: https://github.com/neurogenetics/GWAS-pipeline
 
@@ -198,5 +192,11 @@ metal my_METAL.txt
 ## Column descriptions will be stored in file 'MY_META_AMP_UKB_23andme1.tbl.info'
 ## Completed meta-analysis for 804 markers!
 ## Smallest p-value is 3.78e-250 at marker 'chr12:40340400'
+```
+
+Check output files
+```
+
+
 ```
 
