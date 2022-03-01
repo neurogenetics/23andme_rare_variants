@@ -13,14 +13,6 @@ sinteractive --mem=100g --cpus-per-task=20
 ```
 
 ### Prepare files
-To be honest - I don't quite know what this step is good for
-```
-#write file for all --single score but do separate meta analysis
-#cat *.SingleWald.assoc | grep -v 'N_INFORMATIVE' > allChrs_WALD_FILE.assoc 
-
-#write file for all --single wald but do separate meta analysis
-#cat *.SingleScore.assoc | grep -v 'N_INFORMATIVE' > allChrs_SCORE_FILE.assoc 
-```
 
 Add weights (number of people) to 23andme file
 ```
@@ -139,7 +131,6 @@ write.table(andme, "toMETA_23andme_summary.txt", row.names = F, sep = "\t", quot
 ```
 ### Create metal file
 Adapted from: https://github.com/neurogenetics/GWAS-pipeline
-
 Create file and call it my_METAL.txt
 ```
 #../generic-metal/metal metalAll.txt
