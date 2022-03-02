@@ -129,6 +129,7 @@ write.table(andme, "toMETA_23andme_summary.txt", row.names = F, sep = "\t", quot
 
 # Karl: I'd recommend keeping most of these thresholds, but experiment with relaxing p.date and p.batch. LRRK2 G2019S doesn't fail by much, so it may be sensible to use a slightly less stringent threshold there (instead of removing these filters altogether).
 ```
+
 ### Create metal file
 Adapted from: https://github.com/neurogenetics/GWAS-pipeline
 Create file and call it my_METAL.txt
@@ -194,9 +195,21 @@ metal my_METAL.txt
 ## Smallest p-value is 1.52e-315 at marker 'chr12:40340400'
 
 
-Check output files
+Check output files and make plots
 ```
+module load R
+R
+library(tidyverse)
+library(data.table)
 
+meta = fread("MY_META_AMP_UKB_23andme1.tbl")
+
+meta$position = meta$MarkerName
+meta = meta %>% separate(position, c("chr", "bp"), sep = ":")
+
+PlotFile = meta %>% select(MarkerName, chr
+
+SNP	CHR	BP	P
 
 ```
 
