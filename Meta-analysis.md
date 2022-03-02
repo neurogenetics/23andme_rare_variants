@@ -193,23 +193,96 @@ metal my_METAL.txt
 ## Column descriptions will be stored in file 'MY_META_AMP_UKB_23andme1.tbl.info'
 ## Completed meta-analysis for 834 markers!
 ## Smallest p-value is 1.52e-315 at marker 'chr12:40340400'
-
+```
 
 Check output files and make plots
+What do you need for that? (https://github.com/ipdgc/Manhattan-Plotter, https://github.com/GP2-TNC-WG/GP2-Bioinformatics-course/blob/master/Module_III.md#6-data-visualization-manhattan-plot-1)
+- META analysis .tbl file
+- ANNOTATE file (including Gene name and status)
+
+Write file for annotation to get Gene names
 ```
 module load R
 R
 library(tidyverse)
-library(data.table)
+meta = read.table("MY_META_AMP_UKB_23andme1.tbl", header = T, sep = "\t")
 
-meta = fread("MY_META_AMP_UKB_23andme1.tbl")
+#create file for ANNOTATION
+annotate = meta %>% select(MarkerName, Allele1, Allele2)
+annotate$position = annotate$MarkerName
+annotate = annotate %>% separate(position, c("chr", "Start"), sep = ":")
+annotate$End = annotate$Start
 
-meta$position = meta$MarkerName
-meta = meta %>% separate(position, c("chr", "bp"), sep = ":")
+annotate = annotate %>% select(chr, Start, End, Allele1, Allele2)
+#remove header
+names(annotate)<-NULL
 
-PlotFile = meta %>% select(MarkerName, chr
-
-SNP	CHR	BP	P
-
+write.table(annotate, "META_to_annotate.txt", quote = F, sep = "\t", row.names = F)
+q()
+n
 ```
 
+```
+module load annovar
+
+#gene build hg38
+
+table_annovar.pl META_to_annotate.txt $ANNOVAR_DATA/hg38/ \
+-buildver hg38 -protocol refGene,avsnp150 \
+-operation g,f -outfile META_rare_variants_first_run -nastring .
+
+## new files
+META_rare_variants_first_run.hg38_multianno.txt
+```
+
+```
+R
+library(tidyverse)
+
+Genename = read.table("META_rare_variants_first_run.hg38_multianno.txt", header = T, sep = "\t")
+meta = read.table("MY_META_AMP_UKB_23andme1.tbl", header = T, sep = "\t")
+
+Genename = Genename %>% select(Chr, Start, Gene.refGene)
+Genename = Genename %>% unite("MarkerName", c(Chr, Start), sep =":")
+Genename = Genename %>% rename("Gene" = Gene.refGene)
+
+left_join = left_join(meta, Genename)
+```
+
+Write input files for forrest plot
+```
+library(ggplot2)
+
+data = left_join %>% mutate(OR = exp(Effect), L95 = exp(Effect - 1.96*StdErr), U95 = exp(Effect + 1.96*StdErr))
+
+data$U95 = as.numeric(data$U95)
+
+data$log10Praw <- -1*log(data$P.value, base = 10)
+class(data$P.value)
+class(data$log10Praw)
+data$log10P <- ifelse(data$log10Praw>40, 40, data$log10Praw)
+data$Plevel <- NA
+data$Plevel[data$P < 5E-08] <- "possible"
+data$Plevel[data$P < 5E-09] <- "likely"
+
+gwasFiltered <- subset(data, log10P > 3.114074)
+gwasFiltered = gwasFiltered %>% filter(MarkerName != "chr6:162443384" & MarkerName != "chr22:32475067" & MarkerName != "chr1:155239633" & MarkerName != "chr12:40340404")
+
+fitlered = ggplot(data=gwasFiltered,aes(x = MarkerName, y = OR, ymin = L95, ymax = U95)) +
+  geom_pointrange(aes(ymin = L95, ymax = U95), cex = 0.7) +
+  geom_hline(yintercept = 1.0, linetype = 2) +
+  theme(plot.title = element_text(size = 20, face = "bold"),
+        axis.text.y = element_text(size = 8, face = 'bold'),
+        axis.ticks.y = element_blank(),
+        axis.text.x = element_text(face="bold"),
+        axis.title = element_text(size = 16, face="bold"),
+        legend.position = "none") +
+  xlab('Variants') +
+  ylab("Odds Ratio (95% Confidence Interval)") +
+  coord_flip() +
+  theme_minimal() +
+  ggtitle("Odds Ratio Analysis Parkinson's genetic variants") +
+  theme(plot.title = element_text(hjust=0.5))
+
+ggsave("ForrestPlot_23andme_META.png", fitlered, width = 12, height = 5, dpi=300, units = "in")
+```
