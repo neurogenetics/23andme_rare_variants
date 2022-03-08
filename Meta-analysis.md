@@ -248,6 +248,7 @@ Genename = Genename %>% rename("Gene" = Gene.refGene, "AAChange" = AAChange.refG
 
 left_join = left_join(meta, Genename)
 
+write.table(left_join, "META_AMP_UKB_23andme.txt", row.names =F, sep ="\t", quote = F)
 #edit AAChange - STILL TO DO
 left_join %>% group_by(Gene) %>% tally() %>% arrange(desc(n)) %>% print(n=100)
 left_join %>% filter(Gene == "GBA") %>% select(Gene, AAChange)
@@ -289,6 +290,8 @@ left_join %>% filter(Gene == "GBA") %>% select(Gene, AAChange)
 32 RAB39B          1
 33 SNCB            1
 34 TRPM7           1
+
+
 ```
 
 Write input files for forrest plot
