@@ -247,11 +247,12 @@ Genename = Genename %>% unite("MarkerName", c(Chr, Start), sep =":")
 Genename = Genename %>% rename("Gene" = Gene.refGene, "AAChange" = AAChange.refGene)
 
 left_join = left_join(meta, Genename)
+data = left_join %>% mutate(OR = exp(Effect), L95 = exp(Effect - 1.96*StdErr), U95 = exp(Effect + 1.96*StdErr))
+write.table(data, "META_AMP_UKB_23andme.txt", row.names =F, sep ="\t", quote = F)
 
-write.table(left_join, "META_AMP_UKB_23andme.txt", row.names =F, sep ="\t", quote = F)
-#edit AAChange - STILL TO DO
+#edit AAChange - STILL TO DO (working on a script to do this automatically)
+
 left_join %>% group_by(Gene) %>% tally() %>% arrange(desc(n)) %>% print(n=100)
-left_join %>% filter(Gene == "GBA") %>% select(Gene, AAChange)
 
 # A tibble: 34 × 2
    Gene            n
@@ -290,50 +291,43 @@ left_join %>% filter(Gene == "GBA") %>% select(Gene, AAChange)
 32 RAB39B          1
 33 SNCB            1
 34 TRPM7           1
-
-
 ```
 
 Write input files for forrest plot
 ```
 library(ggplot2)
+library(data.table)
+library(tidyverse)
+library(forcats)
+library(stringr)
 
-data = left_join %>% mutate(OR = exp(Effect), L95 = exp(Effect - 1.96*StdErr), U95 = exp(Effect + 1.96*StdErr))
+meta = fread("METAL_23andme_AMPPD_UKB.txt")
+meta$U95 = as.numeric(meta$U95)
 
-data$log10Praw <- -1*log(data$P.value, base = 10)
-class(data$P.value)
-class(data$log10Praw)
-data$log10P <- ifelse(data$log10Praw>40, 40, data$log10Praw)
-data$Plevel <- NA
-data$Plevel[data$P < 5E-08] <- "possible"
-data$Plevel[data$P < 5E-09] <- "likely"
-
-gwasFiltered <- subset(data, log10P > 3.114074)
-
+## filtering p-values, otherwise too many to plot
+meta$log10Praw <- -1*log(meta$P.value, base = 10)
+meta$log10P <- ifelse(meta$log10Praw>40, 40, meta$log10Praw) 
+gwasFiltered <- subset(meta, log10P > 3.114074)
 gwasFiltered = gwasFiltered %>% filter(MarkerName != "chr6:162443384" & MarkerName != "chr22:32475067" & MarkerName != "chr1:155239633" & MarkerName != "chr12:40340404")
-colnames(gwasFiltered)
 
-class(gwasFiltered$OR)
-  
-  
-fitlered = gwasFiltered %>% arrange(desc(OR)) %>% ggplot(data=gwasFiltered,mapping = aes(x = MarkerName, y = OR, ymin = L95, ymax = U95, label = Gene)) +
-  geom_pointrange(aes(ymin = L95, ymax = U95), cex = 0.7) +
-  geom_hline(yintercept = 1.0, linetype = 2) +
-  theme_light() +
-  theme(plot.title = element_text(size = 20, face = "bold"),
-        axis.text.y = element_text(size = 8, face = 'bold'),
-        axis.ticks.y = element_blank(),
-        axis.text.x = element_text(face="bold"),
-        axis.title = element_text(size = 16, face="bold"),
-        legend.position = "none") +
-  xlab('Variants') +
-  ylab("Odds Ratio (95% Confidence Interval)") +
-  coord_flip() +
-  theme_minimal() +
-  ggtitle("Odds Ratio Analysis Parkinson's genetic variants") +
+
+#gwasFiltered = gwasFiltered[order(gwasFiltered$OR),]
+head(gwasFiltered)
+gwasFiltered$Variant = paste(gwasFiltered$Gene, gwasFiltered$MarkerName, sep = ":")
+
+filtered = gwasFiltered %>% 
+ggplot(gwasFiltered, mapping = aes(x= OR, y = reorder(Variant, -OR)))+
+           geom_vline(aes(xintercept =1), size = .5, linetype = "dashed")+
+           geom_errorbarh(aes(xmax = U95, xmin = L95), size = .5, height = .2, color = "black") +
+           geom_point(size = 3.5, color = "black") +
+           scale_x_continuous(breaks = seq(0,5,1.5), labels = seq(0,5,1.5), limits = c(0,5)) +
+           theme_bw()+
+           theme(panel.grid.minor = element_blank()) +
+           ylab("Variants")+
+           xlab("OR (95% CI)")+
+           ggtitle("Meta-analysis estimates of most significant variants")+
   theme(plot.title = element_text(hjust=0.5))
 
-ggsave("ForestPlot_23andme_META.png", fitlered, width = 12, height = 5, dpi=300, units = "in")
-
+ggsave("ForestPlot_23andme_META.png", filtered, width = 12, height = 5, dpi=300, units = "in")
 
 ```
