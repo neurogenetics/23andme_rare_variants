@@ -822,18 +822,4 @@ mergename_freq6 %>% group_by(Gene.refGene, AAChange.refGene) %>% tally() %>% pri
 write.table(mergename_freq6, "963_variants_score_AMP_UKB_wide.txt", row.names = F, sep = "\t", quote = F)
 ```
 
-
-Derive number of cases and controls in 23andme data (this is not provided)
-```
-module load R
-R
-library(tidyverse)
-data = read.table("results_collaborators_all_963.txt", header =T, sep = "\t")
-data1 = data %>% mutate(sum_controls = rowSums(.[12:14])) %>% mutate(sum_cases = rowSums(.[17:19])) 
-
-data1 %>% summarise_at(vars(sum_controls, sum_cases), list(max=max), na.rm = T)
-#  sum_controls_max sum_cases_max
-#         3065473         25034
-```
-
 Move on to meta-analysis.
