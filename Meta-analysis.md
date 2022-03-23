@@ -6,13 +6,23 @@
 ### Quick Description: 
 METAL is a tool for meta-analysis genomewide association scans. METAL can combine either (a) test statistics and standard errors or (b) p-values across studies (taking sample size and direction of effect into account). METAL analysis is a convenient alternative to a direct analysis of merged data from multiple studies. It is especially appropriate when data from the individual studies cannot be analyzed together because of differences in ethnicity, phenotype distribution, gender or constraints in sharing of individual level data imposed. Meta-analysis results in little or no loss of efficiency compared to analysis of a combined dataset including data from all individual studies.
 
-### Working directory
+## Workflow
+0. Getting set up
+1. Prepare files to match
+2. Create METAL file
+3. Run meta analysis
+4. Annotate
+5. File edits
+6. Plot
+
+
+## 0. Getting set up
 ```
 cd /data/CARD/projects/23andme_annotation/variants_in_internal_datasets
 sinteractive --mem=100g --cpus-per-task=20
 ```
 
-### Prepare files
+## 1. Prepare files to match
 
 Add weights (number of people) to 23andme file
 ```
@@ -35,10 +45,10 @@ andme$N_INFORMATIVE = 3090507
 
 andme$markerID <- paste(andme$scaffold,andme$position, sep = ":")
 
-write.table(andme, "results_collaborators_all_963.txt", row.names= F, sep = "\t", quote =F)
+write.table(andme, "formeta_results_collaborators_all_963.txt", row.names= F, sep = "\t", quote =F)
 ```
 
-Edit layout SCORE file and merge with info from 23andme
+### Edit AMP-PD x LNG to match 23andme layout
 ```
 # start with AMP file
 AMP = fread("AMP_PD_963_23andme_withcovars_score.SingleScore.assoc")
@@ -63,7 +73,7 @@ AMP$majorAllele <- ifelse(AMP$AF <= 0.5, as.character(AMP$REF), as.character(AMP
 write.table(AMP, "toMETA_SCORE_AMP.txt", quote = F, sep = "\t", row.names = F)
 ```
 
-Repeat for UKB
+### Edit UKB to match 23andme layout
 ```
 UKB = fread("UKB_963_23andme_withcovars_score_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.SingleScore.assoc")
 
@@ -87,7 +97,7 @@ UKB$majorAllele <- ifelse(UKB$AF <= 0.5, as.character(UKB$REF), as.character(AMP
 write.table(UKB, "toMETA_SCORE_UKBALL.txt", quote = F, sep = "\t", row.names = F)
 ```
 
-Edit 23andme
+### Edit 23andme
 ```
 # make 23andme data match this layout
 andme = andme %>% select(markerID, assay.name, scaffold:N_INFORMATIVE)
@@ -130,7 +140,7 @@ write.table(andme, "toMETA_23andme_summary.txt", row.names = F, sep = "\t", quot
 # Karl: I'd recommend keeping most of these thresholds, but experiment with relaxing p.date and p.batch. LRRK2 G2019S doesn't fail by much, so it may be sensible to use a slightly less stringent threshold there (instead of removing these filters altogether).
 ```
 
-### Create metal file
+# 2. Create METAL file
 Adapted from: https://github.com/neurogenetics/GWAS-pipeline
 Create file and call it my_METAL.txt
 ```
@@ -183,7 +193,7 @@ ANALYZE HETEROGENEITY
 QUIT
 ```
 
-Then load module and run
+# 3. Run meta-analysis
 ```
 module load metal
 metal my_METAL.txt
@@ -191,8 +201,8 @@ metal my_METAL.txt
 ## Executing meta-analysis ...
 ## Complete results will be stored in file 'MY_META_AMP_UKB_23andme1.tbl'
 ## Column descriptions will be stored in file 'MY_META_AMP_UKB_23andme1.tbl.info'
-## Completed meta-analysis for 834 markers!
-## Smallest p-value is 1.52e-315 at marker 'chr12:40340400'
+## Completed meta-analysis for 833 markers!
+## Smallest p-value is 1.68e-356 at marker 'chr12:40340400'
 ```
 
 Check output files and make plots
@@ -200,7 +210,8 @@ What do you need for that? (https://github.com/ipdgc/Manhattan-Plotter, https://
 - META analysis .tbl file
 - ANNOTATE file (including Gene name and status)
 
-Write file for annotation to get Gene names
+# 4. Annotation 
+### Prepare file for annotation
 ```
 module load R
 R
@@ -222,6 +233,7 @@ q()
 n
 ```
 
+### Run ANNOVAR
 ```
 module load annovar
 
@@ -235,6 +247,8 @@ table_annovar.pl META_to_annotate.txt $ANNOVAR_DATA/hg38/ \
 META_rare_variants_first_run.hg38_multianno.txt
 ```
 
+# 5. File edits
+### Add OR and 95% CI
 ```
 R
 library(tidyverse)
@@ -249,51 +263,14 @@ Genename = Genename %>% rename("Gene" = Gene.refGene, "AAChange" = AAChange.refG
 left_join = left_join(meta, Genename)
 data = left_join %>% mutate(OR = exp(Effect), L95 = exp(Effect - 1.96*StdErr), U95 = exp(Effect + 1.96*StdErr))
 write.table(data, "META_AMP_UKB_23andme.txt", row.names =F, sep ="\t", quote = F)
-
-#edit AAChange - STILL TO DO (working on a script to do this automatically)
-
-left_join %>% group_by(Gene) %>% tally() %>% arrange(desc(n)) %>% print(n=100)
-
-# A tibble: 34 × 2
-   Gene            n
-   <chr>       <int>
- 1 LRRK2         114
- 2 POLG           90
- 3 VPS13C         86
- 4 GBA            85
- 5 PLA2G6         55
- 6 PINK1          50
- 7 PRKN           50
- 8 ATP13A2        44
- 9 DNAJC13        38
-10 EIF4G1         35
-11 SYNJ1          33
-12 GIGYF2         20
-13 LRP10          20
-14 FBXO7          18
-15 DNAJC6         17
-16 HTRA2           9
-17 TMEM230         9
-18 VPS35           8
-19 PARK7           7
-20 SLC6A3          7
-21 SNCAIP          7
-22 PINK1-AS        6
-23 SNCA            6
-24 UCHL1           5
-25 TNR             4
-26 MAPT            2
-27 TNK2            2
-28 FBXO7;FBXO7     1
-29 GLUD2           1
-30 MRE11           1
-31 NR4A2           1
-32 RAB39B          1
-33 SNCB            1
-34 TRPM7           1
+```
+### Edit AAChange 
+```
+Follow script I wrote https://hackmd.io/pEyV63whT_m0KnGAWmPsnQ?view
+# resulting file: Edited_AAChange_Metaanalysis.txt
 ```
 
-Write input files for forrest plot
+# 6. Plot data
 ```
 library(ggplot2)
 library(data.table)
@@ -301,7 +278,7 @@ library(tidyverse)
 library(forcats)
 library(stringr)
 
-meta = fread("METAL_23andme_AMPPD_UKB.txt")
+meta = fread("Edited_AAChange_Metaanalysis.txt")
 meta$U95 = as.numeric(meta$U95)
 
 ## filtering p-values, otherwise too many to plot
@@ -313,21 +290,21 @@ gwasFiltered = gwasFiltered %>% filter(MarkerName != "chr6:162443384" & MarkerNa
 
 #gwasFiltered = gwasFiltered[order(gwasFiltered$OR),]
 head(gwasFiltered)
-gwasFiltered$Variant = paste(gwasFiltered$Gene, gwasFiltered$MarkerName, sep = ":")
+
 
 filtered = gwasFiltered %>% 
-ggplot(gwasFiltered, mapping = aes(x= OR, y = reorder(Variant, -OR)))+
-           geom_vline(aes(xintercept =1), size = .5, linetype = "dashed")+
-           geom_errorbarh(aes(xmax = U95, xmin = L95), size = .5, height = .2, color = "black") +
-           geom_point(size = 3.5, color = "black") +
-           scale_x_continuous(breaks = seq(0,5,1.5), labels = seq(0,5,1.5), limits = c(0,5)) +
-           theme_bw()+
-           theme(panel.grid.minor = element_blank()) +
-           ylab("Variants")+
-           xlab("OR (95% CI)")+
-           ggtitle("Meta-analysis estimates of most significant variants")+
+  ggplot(gwasFiltered, mapping = aes(x= OR, y = reorder(VariantName, -OR)))+
+  geom_vline(aes(xintercept =1), size = .5, linetype = "dashed")+
+  geom_errorbarh(aes(xmax = U95, xmin = L95), size = .5, height = .2) +
+  geom_point(size = 3.5, aes(color = OR)) +
+  scale_x_continuous(breaks = seq(0,8,1.5), labels = seq(0,8,1.5), limits = c(0,8)) +
+  theme_bw()+
+  theme(panel.grid.minor = element_blank(),
+        legend.position = "none") +
+  ylab("Variants")+
+  xlab("OR (95% CI)")+
+  ggtitle("Meta-analysis estimates of most significant variants")+
   theme(plot.title = element_text(hjust=0.5))
 
 ggsave("ForestPlot_23andme_META.png", filtered, width = 12, height = 5, dpi=300, units = "in")
-
 ```
