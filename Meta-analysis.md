@@ -32,18 +32,19 @@ library(tidyverse)
 library(data.table)
 andme = fread("results_collaborators_all_963.txt")
 
+# split alleles
+andme = andme %>% separate("alleles", c("A1", "A2"), sep = "/")
+
 # derive weight, i.e how many samples analyzed
-andme =andme %>% dplyr::mutate(andme, "N_controls" = rowSums((andme[,13:15]), na.rm = TRUE))
-andme =andme %>% dplyr::mutate(andme, "N_cases" = rowSums((andme[,18:20]), na.rm = TRUE))
+andme =andme %>% dplyr::mutate(andme, "N_controls" = rowSums((andme[,12:14]), na.rm = TRUE))
+andme =andme %>% dplyr::mutate(andme, "N_cases" = rowSums((andme[,17:19]), na.rm = TRUE))
 andme %>% summarise_at(vars(N_controls, N_cases), funs(max), na.rm = T)
 #  N_controls N_cases
-#    3065473   25034
+#    3065473   25036
 
 3065473+25034
 [1] 3090507
 andme$N_INFORMATIVE = 3090507
-
-andme$markerID <- paste(andme$scaffold,andme$position, sep = ":")
 
 write.table(andme, "formeta_results_collaborators_all_963.txt", row.names= F, sep = "\t", quote =F)
 ```
@@ -54,21 +55,19 @@ write.table(andme, "formeta_results_collaborators_all_963.txt", row.names= F, se
 AMP = fread("AMP_PD_963_23andme_withcovars_score.SingleScore.assoc")
 
 #edit layout
-AMP$chr <- paste("chr",AMP$CHROM, sep = "")
-AMP$markerID <- paste(AMP$chr,AMP$POS, sep = ":")
-AMP = AMP %>% select(-c(CHROM, chr)) 
+AMP$CHROM <- paste0("chr",AMP$CHROM)
+AMP$ALT1 =AMP$ALT
+AMP$REF1 =AMP$REF
+
+AMP = AMP %>% unite("CHR.START.REF.ALT", c("CHROM", "POS", "REF", "ALT"), sep = ":")
 
 #filter steps
 #data = data %>% filter(Beta <5 & Beta > -5 & !is.na(Pvalue))
 
-AMP$minorAllele <- ifelse(AMP$AF <= 0.5, as.character(AMP$ALT), as.character(AMP$REF))
-AMP$majorAllele <- ifelse(AMP$AF <= 0.5, as.character(AMP$REF), as.character(AMP$ALT))
+AMP$minorAllele <- ifelse(AMP$AF <= 0.5, as.character(AMP$ALT1), as.character(AMP$REF1))
+AMP$majorAllele <- ifelse(AMP$AF <= 0.5, as.character(AMP$REF1), as.character(AMP$ALT1))
 
-#data$beta <- ifelse(data$freq.b <= 0.5, data$Beta, data$Beta*-1)
-#data$se <- data$SE
-#data$maf <- ifelse(data$freq.b <= 0.5, data$freq.b, 1 - data$freq.b)
-#data$P <- data$Pvalue
-#dat0 <- data[,c("markerID","minorAllele","majorAllele","beta","se","maf","P")]
+AMP = AMP %>% rename("ALT" = ALT1, "REF" = REF1)
 
 write.table(AMP, "toMETA_SCORE_AMP.txt", quote = F, sep = "\t", row.names = F)
 ```
@@ -78,21 +77,20 @@ write.table(AMP, "toMETA_SCORE_AMP.txt", quote = F, sep = "\t", row.names = F)
 UKB = fread("UKB_963_23andme_withcovars_score_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.SingleScore.assoc")
 
 #edit layout
-UKB$chr <- paste("chr",UKB$CHROM, sep = "")
-UKB$markerID <- paste(UKB$chr,UKB$POS, sep = ":")
-UKB = UKB %>% select(-c(CHROM, chr)) 
+UKB$CHROM = paste0("chr",UKB$CHROM)
+UKB$REF1 =UKB$REF
+UKB$ALT1 =UKB$ALT
 
-#filter steps
-#data = data %>% filter(Beta <5 & Beta > -5 & !is.na(Pvalue))
+UKB = UKB %>% unite("CHR.START.REF.ALT", c("CHROM", "POS", "REF", "ALT"), sep = ":")
 
-UKB$minorAllele <- ifelse(UKB$AF <= 0.5, as.character(UKB$ALT), as.character(AMP$REF))
-UKB$majorAllele <- ifelse(UKB$AF <= 0.5, as.character(UKB$REF), as.character(AMP$ALT))
+# filter steps
+# data = data %>% filter(Beta <5 & Beta > -5 & !is.na(Pvalue))
 
-#data$beta <- ifelse(data$freq.b <= 0.5, data$Beta, data$Beta*-1)
-#data$se <- data$SE
-#data$maf <- ifelse(data$freq.b <= 0.5, data$freq.b, 1 - data$freq.b)
-#data$P <- data$Pvalue
-#dat0 <- data[,c("markerID","minorAllele","majorAllele","beta","se","maf","P")]
+UKB$minorAllele <- ifelse(UKB$AF <= 0.5, as.character(UKB$ALT1), as.character(AMP$REF1))
+UKB$majorAllele <- ifelse(UKB$AF <= 0.5, as.character(UKB$REF1), as.character(AMP$ALT1))
+
+UKB = UKB %>% rename("ALT" = ALT1, "REF" = REF1)
+
 
 write.table(UKB, "toMETA_SCORE_UKBALL.txt", quote = F, sep = "\t", row.names = F)
 ```
@@ -100,7 +98,8 @@ write.table(UKB, "toMETA_SCORE_UKBALL.txt", quote = F, sep = "\t", row.names = F
 ### Edit 23andme
 ```
 # make 23andme data match this layout
-andme = andme %>% select(markerID, assay.name, scaffold:N_INFORMATIVE)
+andme = fread("formeta_results_collaborators_all_963.txt")
+andme = andme %>% select(CHR.BP.REF.ALT, A1, A2, assay.name, scaffold:p.batch, N_controls:N_INFORMATIVE)
 
 # apply suggested thresholds (suggested by Karl Heilbron @23andme)
 # this shows how many variants would be removed
@@ -157,7 +156,7 @@ LABEL TotalSampleSize as N # If input files have a column for the sample size la
 # GENOMICCONTROL ON
 
 # === DESCRIBE AND PROCESS THE FIRST INPUT FILE ===
-MARKER markerID
+MARKER CHR.START.REF.ALT
 ALLELE minorAllele majorAllele
 FREQ AF
 EFFECT EFFECT
@@ -167,7 +166,7 @@ WEIGHT N_INFORMATIVE
 PROCESS toMETA_SCORE_AMP.txt
 
 # === DESCRIBE AND PROCESS THE SECOND INPUT FILE ===
-MARKER markerID
+MARKER CHR.START.REF.ALT
 ALLELE minorAllele majorAllele
 FREQ AF
 EFFECT EFFECT
@@ -177,7 +176,7 @@ WEIGHT N_INFORMATIVE
 PROCESS toMETA_SCORE_UKBALL.txt
 
 # === DESCRIBE AND PROCESS THE THIRD INPUT FILE ===
-MARKER markerID
+MARKER CHR.BP.REF.ALT
 ALLELE A1 A2
 FREQ freq.b
 EFFECT effect
@@ -202,7 +201,7 @@ metal my_METAL.txt
 ## Complete results will be stored in file 'MY_META_AMP_UKB_23andme1.tbl'
 ## Column descriptions will be stored in file 'MY_META_AMP_UKB_23andme1.tbl.info'
 ## Completed meta-analysis for 833 markers!
-## Smallest p-value is 1.68e-356 at marker 'chr12:40340400'
+## Smallest p-value is 1.52e-315 at marker 'chr12:40340400:G:A'
 ```
 
 Check output files and make plots
@@ -219,12 +218,11 @@ library(tidyverse)
 meta = read.table("MY_META_AMP_UKB_23andme1.tbl", header = T, sep = "\t")
 
 #create file for ANNOTATION
-annotate = meta %>% select(MarkerName, Allele1, Allele2)
-annotate$position = annotate$MarkerName
-annotate = annotate %>% separate(position, c("chr", "Start"), sep = ":")
-annotate$End = annotate$Start
+annotate = meta %>% select(MarkerName)
+annotate = annotate %>% separate("MarkerName", c("CHR", "START", "REF", "ALT"), sep = ":")
+annotate$END = annotate$START
 
-annotate = annotate %>% select(chr, Start, End, Allele1, Allele2)
+annotate = annotate %>% select(CHR, START, END, REF, ALT)
 #remove header
 names(annotate)<-NULL
 
@@ -256,13 +254,18 @@ library(tidyverse)
 Genename = read.table("META_rare_variants_first_run.hg38_multianno.txt", header = T, sep = "\t")
 meta = read.table("MY_META_AMP_UKB_23andme1.tbl", header = T, sep = "\t")
 
-Genename = Genename %>% select(Chr, Start, Gene.refGene, AAChange.refGene)
-Genename = Genename %>% unite("MarkerName", c(Chr, Start), sep =":")
+
+Genename = Genename %>% unite("CHR.BP.REF.ALT", c("Chr", "Start", "Ref", "Alt"), sep = ":")
+Genename = Genename %>% select(CHR.BP.REF.ALT, Gene.refGene, AAChange.refGene)
 Genename = Genename %>% rename("Gene" = Gene.refGene, "AAChange" = AAChange.refGene)
 
-left_join = left_join(meta, Genename)
-data = left_join %>% mutate(OR = exp(Effect), L95 = exp(Effect - 1.96*StdErr), U95 = exp(Effect + 1.96*StdErr))
-write.table(data, "META_AMP_UKB_23andme.txt", row.names =F, sep ="\t", quote = F)
+meta = meta %>% rename("CHR.BP.REF.ALT" = MarkerName)
+
+leftjoin = left_join(meta, Genename)
+dim(leftjoin)
+# 833 17
+
+write.table(leftjoin, "META_AMP_UKB_23andme.txt", row.names =F, sep ="\t", quote = F)
 ```
 ### Edit AAChange 
 ```
@@ -279,16 +282,22 @@ library(forcats)
 library(stringr)
 
 meta = fread("Edited_AAChange_Metaanalysis.txt")
+
+# flip negative Effects (betas)
+meta = meta %>% mutate(Effectv2 = if_else(Effect <0, abs(Effect), Effect))
+
+# add OR and 95% CI
+meta = meta %>% mutate(OR = exp(Effectv2), L95 = exp(Effectv2 - 1.96*StdErr), U95 = exp(Effectv2 + 1.96*StdErr))
 meta$U95 = as.numeric(meta$U95)
 
 ## filtering p-values, otherwise too many to plot
 meta$log10Praw <- -1*log(meta$P.value, base = 10)
 meta$log10P <- ifelse(meta$log10Praw>40, 40, meta$log10Praw) 
 gwasFiltered <- subset(meta, log10P > 3.114074)
-gwasFiltered = gwasFiltered %>% filter(MarkerName != "chr6:162443384" & MarkerName != "chr22:32475067" & MarkerName != "chr1:155239633" & MarkerName != "chr12:40340404")
 
+# remove hideous CIs
+gwasFiltered = gwasFiltered %>% filter(VariantName != "LRRK2_I2020T" & VariantName != "GBA_S146L" & VariantName != "FBXO7_T22M" & VariantName != "PRKN_R33X" & VariantName != "LRRK2_R1441H" & VariantName != "GBA_T362I")
 
-#gwasFiltered = gwasFiltered[order(gwasFiltered$OR),]
 head(gwasFiltered)
 
 
@@ -297,7 +306,7 @@ filtered = gwasFiltered %>%
   geom_vline(aes(xintercept =1), size = .5, linetype = "dashed")+
   geom_errorbarh(aes(xmax = U95, xmin = L95), size = .5, height = .2) +
   geom_point(size = 3.5, aes(color = OR)) +
-  scale_x_continuous(breaks = seq(0,8,1.5), labels = seq(0,8,1.5), limits = c(0,8)) +
+  scale_x_continuous(breaks = seq(0,12,1.5), labels = seq(0,12,1.5), limits = c(0,12)) +
   theme_bw()+
   theme(panel.grid.minor = element_blank(),
         legend.position = "none") +
