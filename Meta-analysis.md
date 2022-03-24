@@ -56,8 +56,9 @@ AMP = fread("AMP_PD_963_23andme_withcovars_score.SingleScore.assoc")
 
 #edit layout
 AMP$CHROM <- paste0("chr",AMP$CHROM)
-AMP$ALT1 =AMP$ALT
 AMP$REF1 =AMP$REF
+AMP$ALT1 =AMP$ALT
+
 
 AMP = AMP %>% unite("CHR.START.REF.ALT", c("CHROM", "POS", "REF", "ALT"), sep = ":")
 
@@ -91,7 +92,6 @@ UKB$majorAllele <- ifelse(UKB$AF <= 0.5, as.character(UKB$REF1), as.character(AM
 
 UKB = UKB %>% rename("ALT" = ALT1, "REF" = REF1)
 
-
 write.table(UKB, "toMETA_SCORE_UKBALL.txt", quote = F, sep = "\t", row.names = F)
 ```
 
@@ -99,7 +99,10 @@ write.table(UKB, "toMETA_SCORE_UKBALL.txt", quote = F, sep = "\t", row.names = F
 ```
 # make 23andme data match this layout
 andme = fread("formeta_results_collaborators_all_963.txt")
-andme = andme %>% select(CHR.BP.REF.ALT, A1, A2, assay.name, scaffold:p.batch, N_controls:N_INFORMATIVE)
+andme$Alleles = andme$CHR.BP.REF.ALT
+andme = andme %>% separate(Alleles, c("CHR", "BP", "REF", "ALT"), sep = ":")
+
+andme = andme %>% select(-c(CHR, BP))
 
 # apply suggested thresholds (suggested by Karl Heilbron @23andme)
 # this shows how many variants would be removed
@@ -132,7 +135,7 @@ dim(andme)
 andme = andme %>% filter(src == "G" & gt.rate >0.9 | src == "G" & p.date >1e-50 | src == "I" & avg.rsqr > 0.5| src == "I" & min.rsqr > 0.5|src == "I" & p.batch > 1e-50)
 
 dim(andme)
-[1] 869  38
+[1] 869  40
 
 write.table(andme, "toMETA_23andme_summary.txt", row.names = F, sep = "\t", quote=F)
 
@@ -177,7 +180,7 @@ PROCESS toMETA_SCORE_UKBALL.txt
 
 # === DESCRIBE AND PROCESS THE THIRD INPUT FILE ===
 MARKER CHR.BP.REF.ALT
-ALLELE A1 A2
+ALLELE A2 A1
 FREQ freq.b
 EFFECT effect
 STDERR stderr
@@ -197,11 +200,16 @@ QUIT
 module load metal
 metal my_METAL.txt
 
+## Running second pass analysis to evaluate heterogeneity...
+## Processing file 'toMETA_23andme_summary.txt'
+## Processing file 'toMETA_SCORE_UKBALL.txt'
+## Processing file 'toMETA_SCORE_AMP.txt'
+
 ## Executing meta-analysis ...
 ## Complete results will be stored in file 'MY_META_AMP_UKB_23andme1.tbl'
 ## Column descriptions will be stored in file 'MY_META_AMP_UKB_23andme1.tbl.info'
 ## Completed meta-analysis for 833 markers!
-## Smallest p-value is 1.52e-315 at marker 'chr12:40340400:G:A'
+## Smallest p-value is 3.06e-384 at marker 'chr12:40340400:G:A'
 ```
 
 Check output files and make plots
@@ -267,6 +275,7 @@ dim(leftjoin)
 
 write.table(leftjoin, "META_AMP_UKB_23andme.txt", row.names =F, sep ="\t", quote = F)
 ```
+
 ### Edit AAChange 
 ```
 Follow script I wrote https://hackmd.io/pEyV63whT_m0KnGAWmPsnQ?view
