@@ -48,18 +48,22 @@ dim(fulljoin_old_failed)
 head(fulljoin_old_failed)
 fulljoin_old_failed %>% group_by(position) %>% tally() %>% filter(n>1) #no duplicates
 
+# right IDs
+Ids = read.table("23andme_rsID_properID.txt", header = T, sep ="\t")
+final = full_join(fulljoin_old_failed, Ids)
+
+# old list
 variants_1091 = read.table("List_1091variants_ID_only.txt", header = F, sep = "\t")
 
-write.table(fulljoin_old_failed, "results_collaborators_all_963.txt", row.names = F, quote = F, sep = "\t")
+write.table(final, "results_collaborators_all_963.txt", row.names = F, quote = F, sep = "\t")
 
 # create file with only IDs, so I can grep them from data sets
-fulljoin_old_failed = fulljoin_old_failed %>% select(scaffold, position)
-fulljoin_old_failed = fulljoin_old_failed %>% unite(combo, c("scaffold", "position"), sep = ":")
-names(fulljoin_old_failed) = "V1"
-head(fulljoin_old_failed)
+final = final %>% select(CHR.BP.REF.ALT)
+names(final) = "V1"
+head(final)
 
 # check if these 23andme provided variants are all on our list
-antijoin = anti_join(fulljoin_old_failed, variants_1091)
+antijoin = anti_join(final, variants_1091)
 dim(antijoin)
 [1] 963   1
 
@@ -67,7 +71,7 @@ names(antijoin) = NULL
 write.table(antijoin, "963_variants_in23andme_variants_IDs_only.txt", row.names = F, quote = F, sep = "\t")
 q()
 n
-All files now in GRCH38!
+# All files now in GRCH38!
 ```
 
 ## UKB data contains indels
@@ -134,11 +138,6 @@ plink --bfile MERGED_UKB_first_pass --extract UKB_noindels_tokeep.txt --make-bed
 # new working files: MERGED_UKB_no_indels
 ```
 
-```
-grep -w -f 963_variants_in23andme_variants_IDs_only.txt MERGED_UKB_no_indels.bim > List_963variants_alleles_UKB.txt
-wc -l List_963variants_alleles_UKB.txt
-# 828 List_963variants_alleles_UKB.txt
-```
 
 #### Double check if these are the correct variants
 ```
@@ -171,17 +170,41 @@ cd /data/CARD/PD/AMP_NIH/no_relateds/
 /data/CARD/PD/AMP_NIH/no_relateds/COV_PD_NIH_AMPv2.5_samplestoKeep_EuroOnly_noDups_noNIHDups_wPheno_wSex_no_cousins.txt
 ```
 
+### Grep variants
+```
+grep -w -f 963_variants_in23andme_variants_IDs_only.txt /data/CARD/PD/AMP_NIH/no_relateds/PD_NIH_AMPv2.5_samplestoKeep_EuroOnly_noDups_noNIHDups_wPheno_wSex_no_cousins.bim > List_963variants_alleles_AMPPD.txt
+wc -l List_963variants_alleles_AMPPD.txt
+# 363 List_963variants_alleles_AMPPD.txt
+```
+
+### Double check in R
+```
+R
+library(tidyverse)
+library(data.table)
+
+AMPPD = fread("/data/CARD/PD/AMP_NIH/no_relateds/PD_NIH_AMPv2.5_samplestoKeep_EuroOnly_noDups_noNIHDups_wPheno_wSex_no_cousins.bim")
+togrep = fread("963_variants_in23andme_variants_IDs_only.txt"
+
+AMMPD = AMPPD %>% dplyr::select(V2)
+names(togrep) = "V2"
+
+merge = merge(AMPPD, togrep)
+dim(merge)
+# 363 check
+```
+
 ### Write new binary files
 ```
 module load plink
 
 plink --bfile /data/CARD/PD/AMP_NIH/no_relateds/PD_NIH_AMPv2.5_samplestoKeep_EuroOnly_noDups_noNIHDups_wPheno_wSex_no_cousins --extract List_963variants_alleles_AMPPD.txt --make-bed --out AMP_PD_963_23andme
 
-# 367 variants and 7986 people pass filters and QC.
+# 363 variants and 7986 people pass filters and QC.
 Among remaining phenotypes, 3376 are cases and 4610 are controls.
 --make-bed to AMP_PD_963_23andme.bed + AMP_PD_963_23andme.bim +
 AMP_PD_963_23andme.fam ... done.
-AMP-PD only contains 367 out of 963 variants provided by 23andme
+AMP-PD only contains 363 out of 963 variants provided by 23andme
 ```
 
 ### Generate frequency file
@@ -194,13 +217,38 @@ plink --bfile AMP_PD_963_23andme --freq --out AMP_PD_963_23andme
 ```
 
 ## UKB
+### Grep variants
+```
+grep -w -f 963_variants_in23andme_variants_IDs_only.txt MERGED_UKB_no_indels.bim > List_963variants_alleles_UKB.txt
+wc -l List_963variants_alleles_UKB.txt
+# 718 List_963variants_alleles_UKB.txt
+```
+
+### Double check in R
+```
+R
+library(tidyverse)
+library(data.table)
+
+UKB = fread("MERGED_UKB_no_indels.bim")
+togrep = fread("963_variants_in23andme_variants_IDs_only.txt"
+
+UKB = UKB %>% dplyr::select(V2)
+names(togrep) = "V2"
+
+merge = merge(UKB, togrep)
+dim(merge)
+# 718 check
+```
+
+
 ### Write new binary files
 ```
 module load plink/1.9.0-beta4.4
 
 plink --bfile MERGED_UKB_no_indels --extract List_963variants_alleles_UKB.txt --make-bed --out UKB_963_23andme
 
-# 828 variants and 200648 people pass filters and QC.
+# 718 variants and 200648 people pass filters and QC.
 # Note: No phenotypes present.
 
 # This file needs to be fixed because of an odd format where column 1 is all zeros (column 1 & 2 need to be same)
@@ -225,7 +273,7 @@ plink --bfile UKB_963_23andme --freq --out UKB_963_23andme
 ```
 plink --bfile AMP_PD_963_23andme --assoc --pheno /data/CARD/PD/AMP_NIH/no_relateds/COV_PD_NIH_AMPv2.5_samplestoKeep_EuroOnly_noDups_noNIHDups_wPheno_wSex_no_cousins.txt --pheno-name PD_PHENO --out AMP_PD_963_23andme_pheno
 
-# 367 variants and 7986 people pass filters and QC.
+# 363 variants and 7986 people pass filters and QC.
 # Among remaining phenotypes, 3376 are cases and 4610 are controls.
 # Writing C/C --assoc report to AMP_PD_963_23andme_pheno.assoc ...
 done.
@@ -236,7 +284,7 @@ done.
 ```
 plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.txt --pheno-name PHENO --allow-no-sex --out UKB_963_23andme_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC
 
-# 828 variants and 200648 people pass filters and QC.
+# 718 variants and 200648 people pass filters and QC.
 # Among remaining phenotypes, 7806 are cases and 38051 are controls.  (154791
 phenotypes are missing.)
 # Writing C/C --assoc report to
@@ -249,7 +297,7 @@ done.
 ```
 plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_PD_CASE_CONTROL_2021_with_PC.txt --pheno-name PHENO --allow-no-sex --out UKB_963_23andme_PD_CASE_CONTROL_2021_with_PC
 
-# 828 variants and 200648 people pass filters and QC.
+# 718 variants and 200648 people pass filters and QC.
 # Among remaining phenotypes, 1105 are cases and 5643 are controls.  (193900
 phenotypes are missing.)
 # Writing C/C --assoc report to
@@ -262,7 +310,7 @@ done.
 ```
 plink --bfile UKB_963_23andme --assoc --pheno /data/CARD/UKBIOBANK/PHENOTYPE_DATA/disease_groups/UKB_EXOM_PD_PARENT_CONTROL_2021_with_PC.txt --pheno-name PHENO --allow-no-sex --out UKB_963_23andme_PD_PARENT_CONTROL_2021_with_PC
 
-# 828 variants and 200648 people pass filters and QC.
+# 718 variants and 200648 people pass filters and QC.
 # Among remaining phenotypes, 6033 are cases and 28945 are controls.  (165670
 phenotypes are missing.)
 # Writing C/C --assoc report to
@@ -326,7 +374,6 @@ tabix -p vcf  UKB_963_23andme${OUTNAME}.vcf.gz
 # new files written: 
 UKB_963_23andme.vcf.gz
 UKB_963_23andme.vcf.gz.tbi
-Run rvtests using different phenotype and covariate files (4 different)
 ```
 
 
@@ -413,16 +460,16 @@ library(tidyr)
 
 #####
 andme = read.table("results_collaborators_all_963.txt", sep = "\t", header = T)
+dim(andme)
 
 # layout
-| assay.name  | scaffold | position  | alleles |
-|-------------|----------|-----------|---------|
-| rs536425950 | chr1     | 155235024 | C/T     |
+| assay.name  | scaffold | position  | alleles |CHR.BP.REF.ALT|
+|-------------|----------|-----------|---------|--------------|
+| rs536425950 | chr1     | 155235024 | C/T     | chr1:155235024:T:C |
 
 # change
-andme = andme %>% rename("Chr" = scaffold, "Start" = position)
+andme = andme %>% separate(CHR.BP.REF.ALT, c("Chr", "Start", "REF", "ALT"), sep = ":")
 andme$End = andme$Start
-andme = andme %>% separate(alleles, c("REF", "ALT"), sep = "/")
 andme = andme %>% select(Chr, Start, End, REF, ALT, assay.name, pvalue:p.batch)
 dim(andme)
 # 963  35
@@ -432,6 +479,7 @@ dim(andme)
 #### 23andme variants found in AMP-PD x LNG 
 ```
 AMP_score = read.table("AMP_PD_963_23andme_withcovars_score.SingleScore.assoc", sep = "\t", header = T)
+
 # layout
 | CHROM | POS     | REF | ALT | N_INFORMATIVE |
 |-------|---------|-----|-----|---------------|
@@ -444,7 +492,7 @@ AMP_score$Chr = paste0('chr', AMP_score$Chr)
 AMP_score = AMP_score %>% select(Chr, Start, End, REF, ALT, N_INFORMATIVE:PVALUE)
 AMP_score = AMP_score %>% rename_with(~paste0(., "_AMP_score"), N_INFORMATIVE:PVALUE)
 dim(AMP_score)
-# 351  14
+# 349  14
 
 # layout we need for annotation
 | Chr  | Start     | End       | Ref | Alt |
@@ -466,7 +514,7 @@ UKB_ALL_score$Chr = paste0('chr', UKB_ALL_score$Chr)
 UKB_ALL_score = UKB_ALL_score %>% select(Chr, Start, End, REF, ALT, N_INFORMATIVE:PVALUE)
 UKB_ALL_score = UKB_ALL_score %>% rename_with(~paste0(., "_UKB_ALL_score"), N_INFORMATIVE:PVALUE)
 dim(UKB_ALL_score)
-# 828  14
+# 718  14
 ```
 
 Case control
@@ -480,7 +528,7 @@ UKB_CASE_CTRL_score$Chr = paste0('chr', UKB_CASE_CTRL_score$Chr)
 UKB_CASE_CTRL_score = UKB_CASE_CTRL_score %>% select(Chr, Start, End, REF, ALT, N_INFORMATIVE:PVALUE)
 UKB_CASE_CTRL_score = UKB_CASE_CTRL_score %>% rename_with(~paste0(., "_UKB_CASE_CONTROL_score"), N_INFORMATIVE:PVALUE)
 dim(UKB_CASE_CTRL_score)
-# 828  14
+# 718  14
 ```
 
 Parent control
@@ -494,11 +542,14 @@ UKB_PARENT_CTRL_score$Chr = paste0('chr', UKB_PARENT_CTRL_score$Chr)
 UKB_PARENT_CTRL_score = UKB_PARENT_CTRL_score %>% select(Chr, Start, End, REF, ALT, N_INFORMATIVE:PVALUE)
 UKB_PARENT_CTRL_score = UKB_PARENT_CTRL_score %>% rename_with(~paste0(., "_UKB_PARENT_CONTROL_score"), N_INFORMATIVE:PVALUE)
 dim(UKB_PARENT_CTRL_score)
-# 828  14
+# 718  14
 ```
 
 #### Start merging
 ```
+andme$Start =as.integer(andme$Start)
+andme$End =as.integer(andme$End)
+
 merge1 = left_join(andme, AMP_score)
 dim(merge1)
 # 963 44
@@ -556,14 +607,17 @@ library(dplyr)
 library(tidyr)
 
 variants = read.table("963variants_23andme_AMPPD_UKB_cov_merged_score.txt", header = T, sep = "\t")
+variants = variants %>% tidyr::unite("CHR.START.REF.ALT", c("Chr", "Start", "REF", "ALT"), sep = ":")
 
 Genenames = read.table("963variants_23_AMP_UKB.hg38_multianno.txt", header = T, sep = "\t")
-Genenames = Genenames %>% select(Start, Gene.refGene, AAChange.refGene)
+Genenames = Genenames %>% tidyr::unite("CHR.START.REF.ALT", c("Chr", "Start", "Ref", "Alt"), sep = ":")
+
+Genenames = Genenames %>% select(CHR.START.REF.ALT, Gene.refGene, AAChange.refGene)
 
 #merge Gene name onto list
 mergename = left_join(variants, Genenames)
 dim(mergename)
-# 963 73
+# 963 70
 ```
 
 #### Add frequency files
@@ -575,31 +629,27 @@ AMP_freq = read.table("AMP_PD_963_23andme.frq", header = T, sep = "")
 | 1   | chr1:7965399:G:A | A  | G  | 0.0001878 | 15972   |
 
 ## change layout
-AMP_freq = AMP_freq %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), sep = ":")
-AMP_freq = AMP_freq %>% select(Start, MAF, A1, A2) %>% rename("AMP_MAF" = MAF)
+AMP_freq = AMP_freq %>% rename("CHR.START.REF.ALT"=SNP)
+AMP_freq = AMP_freq %>% select(CHR.START.REF.ALT, MAF) %>% rename("AMP_MAF" = MAF)
 
 mergename$Start = as.character(mergename$Start)
 mergename_freq1 = left_join(mergename, AMP_freq)
-mergename_freq1 %>% group_by(Start) %>% tally() %>% filter(n>1)
-# A tibble: 1 × 2
-  Start        n
-  <chr>    <int>
-1 40322386     2
+mergename_freq1 %>% group_by(CHR.START.REF.ALT) %>% tally() %>% filter(n>1)
 
 dim(mergename_freq1)
-# 964 74
+# 963 71
 ```
 
 ```
 # MAF for phenotypes
 AMP_phenoMAF = read.table("AMP_PD_963_23andme_pheno.assoc", header = T, sep = "")
+
 | CHR | SNP              | BP      | A1 | F_A       | F_U       | A2 | CHISQ     | P      | OR     |
 |-----|------------------|---------|----|-----------|-----------|----|-----------|--------|--------|
 | 1   | chr1:7965399:G:A | 7965399 | A  | 0.0001481 | 0.0002169 | G  | 9.829e-02 | 0.7539 | 0.6827 |
 
-AMP_phenoMAF = AMP_phenoMAF %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), sep = ":")
-AMP_phenoMAF$End = AMP_phenoMAF$Start
-AMP_phenoMAF = AMP_phenoMAF %>% select(chr, Start, End, A1, A2, F_A, F_U, CHISQ, P, OR)
+AMP_phenoMAF = AMP_phenoMAF %>% rename("CHR.START.REF.ALT"=SNP)
+AMP_phenoMAF = AMP_phenoMAF %>% select(CHR.START.REF.ALT, F_A, F_U, CHISQ, P, OR)
 AMP_phenoMAF = AMP_phenoMAF %>% rename_with(~paste0(., "_AMP_PhenoFreq"), F_A:OR)
 
 | chr  | Start   | End     | A1 | A2 | F_A_AMP_PhenoFreq | F_U_AMP_PhenoFreq | CHISQ_AMP_PhenoFreq | P_AMP_PhenoFreq | OR_AMP_PhenoFreq |
@@ -612,50 +662,46 @@ Merge
 mergename_freq1$End = as.character(mergename_freq1$End)
 mergename_freq2 = left_join(mergename_freq1, AMP_phenoMAF)
 
-mergename_freq2 %>% group_by(Start) %>% tally() %>% filter(n>1)
-# A tibble: 1 × 2
-  Start        n
-  <chr>    <int>
-1 40322386     2
+mergename_freq2 %>% group_by(CHR.START.REF.ALT) %>% tally() %>% filter(n>1)
 
 dim(mergename_freq2)
-# 966 81
+# 963 76
 ```
 
 Add UKB frequency (phenotype and MAF) files
 ```
 UKB_freq = read.table("UKB_963_23andme.frq", header = T, sep = "")
+
 | CHR | SNP              | A1 | A2 | MAF       | NCHROBS |
 |-----|------------------|----|----|-----------|---------|
 | 1   | chr1:7965399:G:A | A  | G  | 3.040e-04 | 401272  |
 
-UKB_freq = UKB_freq %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), sep = ":")
-UKB_freq = UKB_freq %>% select(Start, MAF, A1, A2) %>% rename("UKB_MAF" = MAF) 
+UKB_freq = UKB_freq %>% rename("CHR.START.REF.ALT"=SNP)
+
+UKB_freq = UKB_freq %>% select(CHR.START.REF.ALT, MAF) %>% rename("UKB_MAF" = MAF) 
+
 | Start   | UKB_MAF   | A1 | A2 |
 |---------|-----------|----|----|
 | 7965399 | 3.040e-04 | A  | G  |
 
 mergename_freq3 = left_join(mergename_freq2, UKB_freq)
-mergename_freq3 %>% group_by(Start) %>% tally() %>% filter(n>1)
-# A tibble: 1 × 2
-  Start        n
-  <chr>    <int>
-1 40322386     2
+mergename_freq3 %>% group_by(CHR.START.REF.ALT) %>% tally() %>% filter(n>1)
 
 dim(mergename_freq3)
-# 964 83
+# 963 77
 ```
 
 Add UKB_ALL_PD.assoc
 ```
 UKB_ALLPD = read.table("UKB_963_23andme_ALL_PD_PHENOTYPES_CONTROL_2021_with_PC.assoc", header = T, sep = "")
+
 | CHR | SNP              | BP      | A1 | F_A       | F_U      | A2 | CHISQ | P  | OR |
 |-----|------------------|---------|----|-----------|----------|----|-------|----|----|
 | 1   | chr1:7965399:G:A | 7965399 | A  | 0.0000000 | 0.000000 | G  | NA    | NA | NA |
 
-UKB_ALLPD = UKB_ALLPD %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), sep = ":")
-UKB_ALLPD$End = UKB_ALLPD$Start
-UKB_ALLPD = UKB_ALLPD %>% select(chr, Start, End, A1, A2, F_A, F_U, CHISQ, P, OR)
+UKB_ALLPD = UKB_ALLPD %>% rename("CHR.START.REF.ALT"=SNP)
+
+UKB_ALLPD = UKB_ALLPD %>% select(CHR.START.REF.ALT, F_A, F_U, CHISQ, P, OR)
 UKB_ALLPD = UKB_ALLPD %>% rename_with(~paste0(., "_UKB_Pheno_ALLPD_Freq"), F_A:OR)
 
 | chr  | Start   | End     | A1 | A2 | F_A_UKB_Pheno_ALLPD_Freq | F_U_UKB_Pheno_ALLPD_Freq | CHISQ_UKB_Pheno_ALLPD_Freq | P_UKB_Pheno_ALLPD_Freq | OR_UKB_Pheno_ALLPD_Freq |
@@ -668,14 +714,8 @@ Merge
 mergename_freq3$End = as.character(mergename_freq3$End)
 mergename_freq4 = left_join(mergename_freq3, UKB_ALLPD)
 
-mergename_freq4 %>% group_by(Start) %>% tally() %>% filter(n>1)
-# A tibble: 1 × 2
-  Start        n
-  <chr>    <int>
-1 40322386     2
-
 dim(mergename_freq4)
-# 964 88
+# 964 82
 ```
 
 Add UKB_CASE_CTRL.assoc
@@ -683,9 +723,8 @@ Add UKB_CASE_CTRL.assoc
 UKB_CASE_CTRL= read.table("UKB_963_23andme_PD_CASE_CONTROL_2021_with_PC.assoc", sep = "", header = T)
 # same layout as previous
 
-UKB_CASE_CTRL = UKB_CASE_CTRL %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), sep = ":")
-UKB_CASE_CTRL$End = UKB_CASE_CTRL$Start
-UKB_CASE_CTRL = UKB_CASE_CTRL %>% select(chr, Start, End, A1, A2, F_A, F_U, CHISQ, P, OR)
+UKB_CASE_CTRL = UKB_CASE_CTRL %>% rename("CHR.START.REF.ALT"=SNP)
+UKB_CASE_CTRL = UKB_CASE_CTRL %>% select(CHR.START.REF.ALT, F_A, F_U, CHISQ, P, OR)
 UKB_CASE_CTRL = UKB_CASE_CTRL %>% rename_with(~paste0(., "_UKB_Pheno_CASECTRL_Freq"), F_A:OR)
 ```
 
@@ -693,26 +732,17 @@ UKB_CASE_CTRL = UKB_CASE_CTRL %>% rename_with(~paste0(., "_UKB_Pheno_CASECTRL_Fr
 mergename_freq4$End = as.character(mergename_freq4$End)
 mergename_freq5 = left_join(mergename_freq4, UKB_CASE_CTRL)
 
-mergename_freq5 %>% group_by(Start) %>% tally() %>% filter(n>1)
-# A tibble: 1 × 2
-  Start        n
-  <chr>    <int>
-1 40322386     2
-
 dim(mergename_freq5)
-# 964 93
+# 963 87
 ```
 
 Add UKB_PARENT_CTRL.assoc
 ```
 UKB_PARENT_CTRL = read.table("UKB_963_23andme_PD_PARENT_CONTROL_2021_with_PC.assoc", sep ="", header = T)
 # layout same as previous
-```
 
-```
-UKB_PARENT_CTRL = UKB_PARENT_CTRL %>% separate(SNP, c("chr", "Start", "allele1", "allele2"), sep = ":")
-UKB_PARENT_CTRL$End = UKB_PARENT_CTRL$Start
-UKB_PARENT_CTRL = UKB_PARENT_CTRL %>% select(chr, Start, End, A1, A2, F_A, F_U, CHISQ, P, OR)
+UKB_PARENT_CTRL = UKB_PARENT_CTRL %>% rename("CHR.START.REF.ALT"=SNP)
+UKB_PARENT_CTRL = UKB_PARENT_CTRL %>% select(CHR.START.REF.ALT, F_A, F_U, CHISQ, P, OR)
 UKB_PARENT_CTRL = UKB_PARENT_CTRL %>% rename_with(~paste0(., "_UKB_Pheno_PARENTCTRL_Freq"), F_A:OR)
 ```
 
@@ -721,23 +751,20 @@ Merge
 mergename_freq5$End = as.character(mergename_freq5$End)
 mergename_freq6 = left_join(mergename_freq5, UKB_PARENT_CTRL)
 
-mergename_freq6 %>% group_by(Start) %>% tally() %>% filter(n>1)
-# A tibble: 1 × 2
-  Start        n
-  <chr>    <int>
-1 40322386     2
-
 dim(mergename_freq6)
-# 964 98
+# 963 92
 ```
 
 # 6. Edit gene names by adding variant details
 ```
 colnames(mergename_freq6)
-mergename_freq6 = mergename_freq6 %>% select(Chr:assay.name, Gene.refGene, AAChange.refGene, pvalue:p.batch, AMP_MAF, N_INFORMATIVE_AMP_score:PVALUE_AMP_score, UKB_MAF, N_INFORMATIVE_UKB_ALL_score:OR_UKB_Pheno_PARENTCTRL_Freq) 
+mergename_freq6 = mergename_freq6 %>% dplyr::select(CHR.START.REF.ALT:assay.name, Gene.refGene, AAChange.refGene, pvalue:p.batch, AMP_MAF, N_INFORMATIVE_AMP_score:PVALUE_AMP_score, UKB_MAF, N_INFORMATIVE_UKB_ALL_score:OR_UKB_Pheno_PARENTCTRL_Freq) 
+
+# write file
+write.table(mergename_freq6, "963_variants_score_AMP_UKB_AAChangenotclean.txt", quote = F, sep = "\t", row.names = F)
 
 # clean AAChange.refGene column
-mergename_freq6 = read.table("963_variants_score_AMP_UKB_wide.txt", header = T, sep = "\t")
+# mergename_freq6 = read.table("963_variants_score_AMP_UKB_AAChangenotclean.txt", header = T, sep = "\t")
 mergename_freq6 %>% group_by(Gene.refGene) %>% tally() %>% arrange(desc(n)) %>% print(n=100)
 
 # go through genes
@@ -746,7 +773,7 @@ mergename_freq6 %>% filter(Gene.refGene == "TRPM7") %>% select(Gene.refGene, AAC
 # A tibble: 34 × 2
    Gene.refGene     n
    <chr>        <int>
- 1 LRRK2          126 LRRK2:NM_198578
+ 1 LRRK2          125 LRRK2:NM_198578
  2 GBA            116 PRKN:NM_004562 
  3 VPS13C         102 VPS13C:NM_020821
  4 POLG            97 POLG:NM_001126131, POLG:NM_002693
