@@ -134,12 +134,28 @@ dim(andme)
 # now apply them 
 andme = andme %>% filter(src == "G" & gt.rate >0.9 | src == "G" & p.date >1e-50 | src == "I" & avg.rsqr > 0.5| src == "I" & min.rsqr > 0.5|src == "I" & p.batch > 1e-50)
 
+# Karl: I'd recommend keeping most of these thresholds, but experiment with relaxing p.date and p.batch. LRRK2 G2019S doesn't fail by much, so it may be sensible to use a slightly less stringent threshold there (instead of removing these filters altogether).
+
 dim(andme)
 [1] 869  40
+```
+
+Some imputed variants have the allele frequencies in a different column, so check this and make one frequency column
+```
+# overall how many are genotyped vs imputed?
+andme %>% group_by(src) %>% tally()
+# A tibble: 2 × 2
+  src       n
+  <chr> <int>
+1 G       365
+2 I       504
+
+# correct those imputed ones with missing freq.b
+andme$FREQ = andme$freq.b
+andme_edit = andme %>% mutate(FREQ = if_else(src == "I" & is.na(freq.b), dose.b, FREQ))
+andme_edit %>% select(CHR.BP.REF.ALT, src, dose.b, freq.b, FREQ)
 
 write.table(andme, "toMETA_23andme_summary.txt", row.names = F, sep = "\t", quote=F)
-
-# Karl: I'd recommend keeping most of these thresholds, but experiment with relaxing p.date and p.batch. LRRK2 G2019S doesn't fail by much, so it may be sensible to use a slightly less stringent threshold there (instead of removing these filters altogether).
 ```
 
 # 2. Create METAL file
@@ -181,7 +197,7 @@ PROCESS toMETA_SCORE_UKBALL.txt
 # === DESCRIBE AND PROCESS THE THIRD INPUT FILE ===
 MARKER CHR.BP.REF.ALT
 ALLELE A2 A1
-FREQ freq.b
+FREQ FREQ
 EFFECT effect
 STDERR stderr
 PVALUE pvalue
@@ -282,7 +298,7 @@ Follow script I wrote https://hackmd.io/pEyV63whT_m0KnGAWmPsnQ?view
 # resulting file: Edited_AAChange_Metaanalysis.txt
 ```
 
-# 6. Plot data
+# 6. Plot data and write result files
 ```
 library(ggplot2)
 library(data.table)
@@ -298,24 +314,57 @@ meta = meta %>% mutate(Effectv2 = if_else(Effect <0, abs(Effect), Effect))
 # add OR and 95% CI
 meta = meta %>% mutate(OR = exp(Effectv2), L95 = exp(Effectv2 - 1.96*StdErr), U95 = exp(Effectv2 + 1.96*StdErr))
 meta$U95 = as.numeric(meta$U95)
+```
 
+Write file of all variants passing p<0.05
+```
+meta0.05 = meta%>% filter(P.value <0.05)
+meta0.05 = tidyr::separate(meta0.05, "MarkerName", c("CHR", "BP", "REF", "ALT"), sep = ":")
+write.table(meta0.05, "Results_meta_analysis_pvalue0.05.txt", row.names = F, sep = "\t", quote = F)
+
+# add width of CI to filter those that are way too large for plotting
+meta0.05 = meta0.05 %>% mutate(CI_range = U95-L95)
+CI_filter = meta0.05 %>% filter(CI_range<30)
+
+# plot
+CI_filtered = CI_filter %>% 
+  ggplot(CI_filter, mapping = aes(x= OR, y = reorder(VariantName, -OR)))+
+  geom_vline(aes(xintercept =1), size = .5, linetype = "dashed")+
+  geom_errorbarh(aes(xmax = U95, xmin = L95), size = .5, height = .2) +
+  geom_point(size = 3.5, aes(color = OR)) +
+  scale_x_continuous(breaks = seq(0,25,1.5), labels = seq(0,25,1.5), limits = c(0,25)) +
+  theme_bw()+
+  theme(panel.grid.minor = element_blank(),
+        legend.position = "none") +
+  ylab("Variants")+
+  xlab("OR (95% CI)")+
+  ggtitle("Meta-analysis estimates p<0.05")+
+  theme(plot.title = element_text(hjust=0.5))
+  
+ggsave("Results_ForestPlot_23andme_META_p0.05.png", CI_filtered, width = 12, height = 10, dpi=300, units = "in")
+```
+
+Write file with those with smalles p-values
+```
 ## filtering p-values, otherwise too many to plot
 meta$log10Praw <- -1*log(meta$P.value, base = 10)
 meta$log10P <- ifelse(meta$log10Praw>40, 40, meta$log10Praw) 
 gwasFiltered <- subset(meta, log10P > 3.114074)
+gwasFiltered %>% summarise(min = min(OR),
+                           max = max(OR))
 
-# remove hideous CIs
-gwasFiltered = gwasFiltered %>% filter(VariantName != "LRRK2_I2020T" & VariantName != "GBA_S146L" & VariantName != "FBXO7_T22M" & VariantName != "PRKN_R33X" & VariantName != "LRRK2_R1441H" & VariantName != "GBA_T362I")
+selected = gwasFiltered 
+write.table(selected, "Results_meta_analysis_selectedpvalue.txt", row.names = F, sep = "\t", quote = F)
 
-head(gwasFiltered)
-
+# remove wide CIs - visually
+gwasFiltered = gwasFiltered %>% filter(VariantName != "LRRK2_I2020T" & VariantName != "GBA_S146L" & VariantName != "FBXO7_T22M" & VariantName != "PRKN_R33X" & VariantName != "LRRK2_R1441H")
 
 filtered = gwasFiltered %>% 
   ggplot(gwasFiltered, mapping = aes(x= OR, y = reorder(VariantName, -OR)))+
   geom_vline(aes(xintercept =1), size = .5, linetype = "dashed")+
   geom_errorbarh(aes(xmax = U95, xmin = L95), size = .5, height = .2) +
   geom_point(size = 3.5, aes(color = OR)) +
-  scale_x_continuous(breaks = seq(0,12,1.5), labels = seq(0,12,1.5), limits = c(0,12)) +
+  scale_x_continuous(breaks = seq(0,14,1.5), labels = seq(0,14,1.5), limits = c(0,14)) +
   theme_bw()+
   theme(panel.grid.minor = element_blank(),
         legend.position = "none") +
@@ -324,5 +373,5 @@ filtered = gwasFiltered %>%
   ggtitle("Meta-analysis estimates of most significant variants")+
   theme(plot.title = element_text(hjust=0.5))
 
-ggsave("ForestPlot_23andme_META.png", filtered, width = 12, height = 5, dpi=300, units = "in")
+ggsave("Results_ForestPlot_23andme_META.png", filtered, width = 12, height = 5, dpi=300, units = "in")
 ```
