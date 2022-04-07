@@ -326,6 +326,16 @@ write.table(meta0.05, "Results_meta_analysis_pvalue0.05.txt", row.names = F, sep
 meta0.05 = meta0.05 %>% mutate(CI_range = U95-L95)
 CI_filter = meta0.05 %>% filter(CI_range<30)
 
+# edit those with multiple AAChanges - choose smallest NM_transcript
+CI_filter = CI_filter %>% mutate(VariantName = if_else(VariantName == "FBXO7_M36I, FBXO7_M115I", "FBXO7_M115I",
+                                                           if_else(VariantName == "DNAJC13_A1463S, DNAJC13_A1468S", "DNAJC13_A1463S",
+                                                                   if_else(VariantName == "EIF4G1_M432V, EIF4G1_M439V", "EIF4G1_M432V",
+                                                                           if_else(VariantName == "EIF4G1_I807V, EIF4G1_I813V, EIF4G1_I806V", "EIF4G1_I806V",
+                                                                                   if_else(VariantName == "EIF4G1_L604V, EIF4G1_L611V", "EIF4G1_L604V",
+                                                                                           if_else(VariantName == "DNAJC6_V353M, DNAJC6_V296M, DNAJC6_V283M", "DNAJC13_V296M",
+                                                                                                   if_else(VariantName == "DNAJC13_R1830H, DNAJC13_R1835H", "RNAJC13_R1830H", VariantName))))))))
+
+
 # plot
 CI_filtered = CI_filter %>% 
   ggplot(CI_filter, mapping = aes(x= OR, y = reorder(VariantName, -OR)))+
