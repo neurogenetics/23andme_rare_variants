@@ -74,6 +74,54 @@ n
 # All files now in GRCH38!
 ```
 
+Annotate 23andMe variants
+```
+R
+library(dplyr)
+library(tidyr)
+andme = read.table("results_collaborators_all_963.txt", header = T, sep = "\t")
+andme = andme %>% select(CHR.BP.REF.ALT) %>% separate(CHR.BP.REF.ALT, c("CHR", "Start", "REF", "ALT"), sep = ":")
+andme$End = andme$Start
+andme = andme %>% select(CHR, Start, End, REF, ALT)
+names(andme) <- NULL
+write.table(andme, "to_annotate_only23andme.txt", row.names = F, sep = "\t", quote = F)
+```
+
+```
+module load annovar
+
+#gene build hg38
+
+table_annovar.pl to_annotate_only23andme.txt $ANNOVAR_DATA/hg38/ \
+-buildver hg38 -protocol refGene,avsnp150,clinvar_20200316  \
+-operation g,f,f -outfile 963_only23andme_annotated -nastring .
+
+## new files
+963_only23andme_annotated.hg38_multianno.txt
+```
+
+Check what the variants are
+```
+R
+library(data.table)
+annotated = fread("963_only23andme_annotated.hg38_multianno.txt")
+
+annotated %>% group_by(CLNSIG) %>% tally()
+# A tibble: 10 × 2
+   CLNSIG                                           n
+   <chr>                                        <int>
+ 1 .                                              436
+ 2 Benign                                          60
+ 3 Benign/Likely_benign                            27
+ 4 Conflicting_interpretations_of_pathogenicity    89
+ 5 Likely_benign                                   47
+ 6 Likely_pathogenic                               31
+ 7 Pathogenic                                      85
+ 8 Pathogenic/Likely_pathogenic                    16
+ 9 risk_factor                                      8
+10 Uncertain_significance                         164
+```
+
 ## UKB data contains indels
 
 ### PLINK file merged with no relateds
