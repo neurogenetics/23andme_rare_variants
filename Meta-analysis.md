@@ -192,16 +192,16 @@ module load annovar
 #gene build hg38
 
 table_annovar.pl to_annotate_ANDME.txt $ANNOVAR_DATA/hg38/ \
--buildver hg38 -protocol refGene,avsnp150 \
--operation g,f -outfile 23andme_annotated -nastring .
+-buildver hg38 -protocol refGene,avsnp150,clinvar_20200316 \
+-operation g,f,f -outfile 23andme_annotated -nastring .
 
 table_annovar.pl to_annotate_AMP.txt $ANNOVAR_DATA/hg38/ \
--buildver hg38 -protocol refGene,avsnp150 \
--operation g,f -outfile AMP_annotated -nastring .
+-buildver hg38 -protocol refGene,avsnp150,clinvar_20200316 \
+-operation g,f,f -outfile AMP_annotated -nastring .
 
 table_annovar.pl to_annotate_UKB.txt $ANNOVAR_DATA/hg38/ \
--buildver hg38 -protocol refGene,avsnp150 \
--operation g,f -outfile UKB_annotated -nastring .
+-buildver hg38 -protocol refGene,avsnp150,clinvar_20200316 \
+-operation g,f,f -outfile UKB_annotated -nastring .
 
 ## new files
 UKB_annotated.hg38_multianno.txt
@@ -369,8 +369,8 @@ module load annovar
 #gene build hg38
 
 table_annovar.pl META_to_annotate.txt $ANNOVAR_DATA/hg38/ \
--buildver hg38 -protocol refGene,avsnp150 \
--operation g,f -outfile META_rare_variants_first_run -nastring .
+-buildver hg38 -protocol refGene,avsnp150,clinvar_20200316 \
+-operation g,f,f -outfile META_rare_variants_first_run -nastring .
 
 ## new files
 META_rare_variants_first_run.hg38_multianno.txt
