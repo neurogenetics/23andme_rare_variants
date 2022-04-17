@@ -158,6 +158,113 @@ andme_edit %>% select(CHR.BP.REF.ALT, src, dose.b, freq.b, FREQ)
 write.table(andme, "toMETA_23andme_summary.txt", row.names = F, sep = "\t", quote=F)
 ```
 
+Annotate all files for future use
+```
+R
+library(dplyr)
+library(tidyr)
+ANDME = read.table("toMETA_23andme_summary.txt", header = T, sep = "\t")
+AMP = read.table("toMETA_SCORE_AMP.txt", header = T, sep = "\t")
+UKB = read.table("toMETA_SCORE_UKBALL.txt", header = T, sep = "\t")
+
+ANDME_annotate = ANDME %>% select(CHR.BP.REF.ALT) %>% separate(CHR.BP.REF.ALT, c("CHR", "START", "REF", "ALT"), sep = ":")
+ANDME_annotate$END = ANDME_annotate$START
+ANDME_annotate= ANDME_annotate %>% select(CHR, START, END, REF, ALT)
+names(ANDME_annotate) <- NULL
+write.table(ANDME_annotate, "to_annotate_ANDME.txt", row.names = F, sep = "\t", quote =F) 
+
+AMP_annotate = AMP %>% select(CHR.START.REF.ALT) %>% separate(CHR.START.REF.ALT, c("CHR", "START", "REF", "ALT"), sep = ":")
+AMP_annotate$END = AMP_annotate$START
+AMP_annotate= AMP_annotate %>% select(CHR, START, END, REF, ALT)
+names(AMP_annotate) <- NULL
+write.table(AMP_annotate, "to_annotate_AMP.txt", row.names = F, sep = "\t", quote =F) 
+
+UKB_annotate = UKB %>% select(CHR.START.REF.ALT) %>% separate(CHR.START.REF.ALT, c("CHR", "START", "REF", "ALT"), sep = ":")
+UKB_annotate$END = UKB_annotate$START
+UKB_annotate= UKB_annotate %>% select(CHR, START, END, REF, ALT)
+names(UKB_annotate) <- NULL
+write.table(UKB_annotate, "to_annotate_UKB.txt", row.names = F, sep = "\t", quote =F) 
+```
+
+```
+module load annovar
+
+#gene build hg38
+
+table_annovar.pl to_annotate_ANDME.txt $ANNOVAR_DATA/hg38/ \
+-buildver hg38 -protocol refGene,avsnp150 \
+-operation g,f -outfile 23andme_annotated -nastring .
+
+table_annovar.pl to_annotate_AMP.txt $ANNOVAR_DATA/hg38/ \
+-buildver hg38 -protocol refGene,avsnp150 \
+-operation g,f -outfile AMP_annotated -nastring .
+
+table_annovar.pl to_annotate_UKB.txt $ANNOVAR_DATA/hg38/ \
+-buildver hg38 -protocol refGene,avsnp150 \
+-operation g,f -outfile UKB_annotated -nastring .
+
+## new files
+UKB_annotated.hg38_multianno.txt
+AMP_annotated.hg38_multianno.txt
+23andme_annotated.hg38_multianno.txt
+```
+
+Merge annotation back on files
+```
+R
+library(tidyverse)
+
+**23andme**
+ANDME = read.table("toMETA_23andme_summary.txt", header = T, sep = "\t")
+dim(ANDME)
+# 869 41
+
+ANDME_anno = read.table("23andme_annotated.hg38_multianno.txt", header = T, sep = "\t")
+dim(ANDME_anno)
+# 869 8
+ANDME_anno = ANDME_anno %>% unite("CHR.BP.REF.ALT", c(Chr, Start, Ref, Alt), sep = ":")
+ANDME_total = full_join(ANDME, ANDME_anno)
+dim(ANDME_total)
+# 869 48
+write.table(ANDME_total, "23andme_summarystats_annotated.txt", row.names = F, sep = "\t", quote =F)
+
+**AMP-PD**
+AMP = read.table("toMETA_SCORE_AMP.txt", header = T, sep = "\t")
+dim(AMP)
+# 349 14
+
+AMP_anno = read.table("AMP_annotated.hg38_multianno.txt", header = T, sep = "\t")
+dim(AMP_anno)
+# 349 11
+AMP_anno = AMP_anno %>% unite("CHR.START.REF.ALT", c(Chr, Start, Ref, Alt), sep = ":")
+AMP_total = full_join(AMP, AMP_anno)
+dim(AMP_total)
+# 349 21
+write.table(AMP_total, "AMP_summarystats_annotated.txt", row.names = F, sep = "\t", quote =F)
+
+**UKB**
+UKB = read.table("toMETA_SCORE_UKBALL.txt", header = T, sep = "\t")
+dim(UKB)
+# 718 14
+
+UKB_anno = read.table("UKB_annotated.hg38_multianno.txt", header = T, sep = "\t")
+dim(UKB_anno)
+# 718 11
+UKB_anno = UKB_anno %>% unite("CHR.START.REF.ALT", c(Chr, Start, Ref, Alt), sep = ":")
+UKB_total = full_join(UKB, UKB_anno)
+dim(UKB_total)
+# 718 21
+write.table(UKB_total, "UKB_summarystats_annotated.txt", row.names = F, sep = "\t", quote =F)
+```
+
+Edit AAChange for individual plots
+```
+Follow script I wrote https://hackmd.io/pEyV63whT_m0KnGAWmPsnQ?view
+# resulting files: Edited_AAChange_23andme_sumstats.txt,
+Edited_AAChange_AMP_sumstats.txt,
+Edited_AAChange_UKB_sumstats.txt
+```
+
 # 2. Create METAL file
 Adapted from: https://github.com/neurogenetics/GWAS-pipeline
 Create file and call it my_METAL.txt
