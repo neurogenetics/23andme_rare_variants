@@ -96,6 +96,124 @@ write.table(UKB, "toMETA_SCORE_UKBALL.txt", quote = F, sep = "\t", row.names = F
 ```
 
 ### Edit 23andme
+Annotate initial 23andMe file with all 963 variants
+```
+R
+library(dplyr)
+library(tidyr)
+
+andme = read.table("formeta_results_collaborators_all_963.txt", header = T, sep = "\t")
+andme = andme %>% select(CHR.BP.REF.ALT) %>% separate(CHR.BP.REF.ALT, c("CHR", "BP", "REF", "ALT"), sep = ":")
+andme$End = andme$BP
+andme = andme %>% select(CHR, BP, End, REF, ALT)
+names(andme) <- NULL
+write.table(andme, "963_original_to_annotate.txt", row.names = F, sep = "\t", quote = F)
+```
+
+```
+module load annovar
+
+table_annovar.pl 963_original_to_annotate.txt $ANNOVAR_DATA/hg38/ \
+-buildver hg38 -protocol refGene,avsnp150,clinvar_20200316 \
+-operation g,f,f -outfile 963_original_23andMe -nastring .
+
+# new file: 963_original_23andMe.hg38_multianno.txt
+```
+
+```
+R
+library(data.table)
+library(tidyverse)
+
+original = fread("963_original_23andMe.hg38_multianno.txt")
+original$Gene.refGene[original$Gene.refGene == "FBXO7;FBXO7"] <- "FBXO7"
+original = original %>% filter(Gene.refGene != "PINK1-AS")
+original %>% group_by(Gene.refGene) %>% tally() %>% arrange(desc(n)) %>% print(n=50)
+
+# A tibble: 32 × 2
+   Gene.refGene     n
+   <chr>        <int>
+ 1 LRRK2          125
+ 2 GBA            116
+ 3 VPS13C         102
+ 4 POLG            97
+ 5 PLA2G6          59
+ 6 PINK1           54
+ 7 PRKN            54
+ 8 ATP13A2         51
+ 9 EIF4G1          42
+10 DNAJC13         41
+11 SYNJ1           41
+12 LRP10           25
+13 GIGYF2          24
+14 FBXO7           23
+15 DNAJC6          21
+16 HTRA2           10
+17 PARK7           10
+18 VPS35           10
+19 TMEM230          9
+20 SLC6A3           7
+21 SNCA             7
+22 SNCAIP           7
+23 UCHL1            5
+24 TNR              4
+25 MAPT             3
+26 RAB39B           2
+27 SNCB             2
+28 TNK2             2
+29 GLUD2            1
+30 MRE11            1
+31 NR4A2            1
+32 TRPM7            1
+
+original %>% filter(CLNSIG != ".") %>%  group_by(Gene.refGene, CLNSIG) %>% tally() %>% mutate(perc = n/sum(n)*100) %>% filter(CLNSIG == "Pathogenic" | CLNSIG == "Likely_pathogenic" | CLNSIG == "Uncertain_significance") %>% print(n=50)
+# Groups:   Gene.refGene [23]
+   Gene.refGene CLNSIG                     n   perc
+   <chr>        <chr>                  <int>  <dbl>
+ 1 ATP13A2      Likely_pathogenic          1   2.5 
+ 2 ATP13A2      Uncertain_significance    16  40   
+ 3 DNAJC6       Uncertain_significance     2  28.6 
+ 4 FBXO7        Pathogenic                 3  25   
+ 5 FBXO7        Uncertain_significance     3  25   
+ 6 GBA          Likely_pathogenic          8  18.6 
+ 7 GBA          Pathogenic                19  44.2 
+ 8 GBA          Uncertain_significance     4   9.30
+ 9 GLUD2        Pathogenic                 1 100   
+10 LRRK2        Pathogenic                 8   8.51
+11 LRRK2        Uncertain_significance    58  61.7 
+12 MAPT         Pathogenic                 3 100   
+13 NR4A2        Uncertain_significance     1 100   
+14 PARK7        Pathogenic                 5  62.5 
+15 PARK7        Uncertain_significance     1  12.5 
+16 PINK1        Likely_pathogenic          1   2.94
+17 PINK1        Pathogenic                11  32.4 
+18 PINK1        Uncertain_significance     7  20.6 
+19 PINK1-AS     Uncertain_significance     5  83.3 
+20 PLA2G6       Likely_pathogenic         10  20.4 
+21 PLA2G6       Pathogenic                13  26.5 
+22 PLA2G6       Uncertain_significance    12  24.5 
+23 POLG         Likely_pathogenic          8   9.64
+24 POLG         Pathogenic                11  13.3 
+25 POLG         Uncertain_significance    19  22.9 
+26 PRKN         Likely_pathogenic          2   6.90
+27 PRKN         Pathogenic                 7  24.1 
+28 PRKN         Uncertain_significance     7  24.1 
+29 SLC6A3       Uncertain_significance     6  85.7 
+30 SNCA         Pathogenic                 2  33.3 
+31 SNCA         Uncertain_significance     2  33.3 
+32 SNCAIP       Uncertain_significance     5  71.4 
+33 SNCB         Pathogenic                 2 100   
+34 SYNJ1        Uncertain_significance    11  37.9 
+35 TNK2         Uncertain_significance     1  50   
+36 TNR          Uncertain_significance     2  50   
+37 UCHL1        Uncertain_significance     1  33.3 
+38 VPS35        Likely_pathogenic          1  20   
+39 VPS35        Uncertain_significance     1  20 
+
+```
+
+
+Initially 963 variants, this will be reduced to 869 by filtering:
 ```
 # make 23andme data match this layout
 andme = fread("formeta_results_collaborators_all_963.txt")
@@ -214,7 +332,7 @@ Merge annotation back on files
 R
 library(tidyverse)
 
-**23andme**
+## 23andme ##
 ANDME = read.table("toMETA_23andme_summary.txt", header = T, sep = "\t")
 dim(ANDME)
 # 869 41
@@ -228,7 +346,7 @@ dim(ANDME_total)
 # 869 48
 write.table(ANDME_total, "23andme_summarystats_annotated.txt", row.names = F, sep = "\t", quote =F)
 
-**AMP-PD**
+## AMP-PD ##
 AMP = read.table("toMETA_SCORE_AMP.txt", header = T, sep = "\t")
 dim(AMP)
 # 349 14
@@ -242,7 +360,7 @@ dim(AMP_total)
 # 349 21
 write.table(AMP_total, "AMP_summarystats_annotated.txt", row.names = F, sep = "\t", quote =F)
 
-**UKB**
+## UKB ##
 UKB = read.table("toMETA_SCORE_UKBALL.txt", header = T, sep = "\t")
 dim(UKB)
 # 718 14
@@ -379,15 +497,19 @@ META_rare_variants_first_run.hg38_multianno.txt
 # 5. File edits
 ### Add OR and 95% CI
 ```
-R
-library(tidyverse)
+cd /data/CARD/projects/23andme_annotation/variants_in_internal_datasets/Results/
 
-Genename = read.table("META_rare_variants_first_run.hg38_multianno.txt", header = T, sep = "\t")
-meta = read.table("MY_META_AMP_UKB_23andme1.tbl", header = T, sep = "\t")
+R
+library(dplyr)
+library(tidyr)
+library(data.table)
+
+Genename = fread("META_rare_variants_first_run.hg38_multianno.txt", header = T)
+meta = fread("MY_META_AMP_UKB_23andme1.tbl", header = T)
 
 
 Genename = Genename %>% unite("CHR.BP.REF.ALT", c("Chr", "Start", "Ref", "Alt"), sep = ":")
-Genename = Genename %>% select(CHR.BP.REF.ALT, Gene.refGene, AAChange.refGene)
+Genename = Genename %>% select(CHR.BP.REF.ALT, Gene.refGene, AAChange.refGene, CLNDN, CLNREVSTAT, CLNSIG)
 Genename = Genename %>% rename("Gene" = Gene.refGene, "AAChange" = AAChange.refGene)
 
 meta = meta %>% rename("CHR.BP.REF.ALT" = MarkerName)
