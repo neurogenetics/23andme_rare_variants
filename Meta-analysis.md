@@ -310,16 +310,16 @@ module load annovar
 #gene build hg38
 
 table_annovar.pl to_annotate_ANDME.txt $ANNOVAR_DATA/hg38/ \
--buildver hg38 -protocol refGene,avsnp150,clinvar_20200316 \
--operation g,f,f -outfile 23andme_annotated -nastring .
+-buildver hg38 -protocol refGene,avsnp150 \
+-operation g,f -outfile 23andme_annotated -nastring .
 
 table_annovar.pl to_annotate_AMP.txt $ANNOVAR_DATA/hg38/ \
--buildver hg38 -protocol refGene,avsnp150,clinvar_20200316 \
--operation g,f,f -outfile AMP_annotated -nastring .
+-buildver hg38 -protocol refGene,avsnp150 \
+-operation g,f -outfile AMP_annotated -nastring .
 
 table_annovar.pl to_annotate_UKB.txt $ANNOVAR_DATA/hg38/ \
--buildver hg38 -protocol refGene,avsnp150,clinvar_20200316 \
--operation g,f,f -outfile UKB_annotated -nastring .
+-buildver hg38 -protocol refGene,avsnp150 \
+-operation g,f -outfile UKB_annotated -nastring .
 
 ## new files
 UKB_annotated.hg38_multianno.txt
@@ -378,7 +378,8 @@ write.table(UKB_total, "UKB_summarystats_annotated.txt", row.names = F, sep = "\
 Edit AAChange for individual plots
 ```
 Follow script I wrote https://hackmd.io/pEyV63whT_m0KnGAWmPsnQ?view
-# resulting files: Edited_AAChange_23andme_sumstats.txt,
+# resulting files: 
+Edited_AAChange_23andme_sumstats.txt,
 Edited_AAChange_AMP_sumstats.txt,
 Edited_AAChange_UKB_sumstats.txt
 ```
@@ -487,11 +488,13 @@ module load annovar
 #gene build hg38
 
 table_annovar.pl META_to_annotate.txt $ANNOVAR_DATA/hg38/ \
--buildver hg38 -protocol refGene,avsnp150,clinvar_20200316 \
--operation g,f,f -outfile META_rare_variants_first_run -nastring .
+-buildver hg38 -protocol refGene,avsnp150 \
+-operation g,f -outfile META_rare_variants_first_run -nastring .
 
 ## new files
 META_rare_variants_first_run.hg38_multianno.txt
+
+mv META_rare_variants_first_run.hg38_multianno.txt ./Results
 ```
 
 # 5. File edits
@@ -509,7 +512,7 @@ meta = fread("MY_META_AMP_UKB_23andme1.tbl", header = T)
 
 
 Genename = Genename %>% unite("CHR.BP.REF.ALT", c("Chr", "Start", "Ref", "Alt"), sep = ":")
-Genename = Genename %>% select(CHR.BP.REF.ALT, Gene.refGene, AAChange.refGene, CLNDN, CLNREVSTAT, CLNSIG)
+Genename = Genename %>% select(CHR.BP.REF.ALT, Gene.refGene, AAChange.refGene)
 Genename = Genename %>% rename("Gene" = Gene.refGene, "AAChange" = AAChange.refGene)
 
 meta = meta %>% rename("CHR.BP.REF.ALT" = MarkerName)
