@@ -488,13 +488,13 @@ module load annovar
 #gene build hg38
 
 table_annovar.pl META_to_annotate.txt $ANNOVAR_DATA/hg38/ \
--buildver hg38 -protocol refGene,avsnp150 \
--operation g,f -outfile META_rare_variants_first_run -nastring .
+-buildver hg38 -protocol refGene,avsnp150,clinvar_20200316 \
+-operation g,f,f -outfile META_rare_variants_clinvar -nastring .
 
 ## new files
-META_rare_variants_first_run.hg38_multianno.txt
+META_rare_variants_clinvar.hg38_multianno.txt
 
-mv META_rare_variants_first_run.hg38_multianno.txt ./Results
+mv META_rare_variants_clinvar.hg38_multianno.txt ./Results
 ```
 
 # 5. File edits
@@ -507,12 +507,12 @@ library(dplyr)
 library(tidyr)
 library(data.table)
 
-Genename = fread("META_rare_variants_first_run.hg38_multianno.txt", header = T)
+Genename = fread("META_rare_variants_clinvar.hg38_multianno.txt", header = T)
 meta = fread("MY_META_AMP_UKB_23andme1.tbl", header = T)
 
 
 Genename = Genename %>% unite("CHR.BP.REF.ALT", c("Chr", "Start", "Ref", "Alt"), sep = ":")
-Genename = Genename %>% select(CHR.BP.REF.ALT, Gene.refGene, AAChange.refGene)
+Genename = Genename %>% select(CHR.BP.REF.ALT, CLNSIG, Gene.refGene, AAChange.refGene)
 Genename = Genename %>% rename("Gene" = Gene.refGene, "AAChange" = AAChange.refGene)
 
 meta = meta %>% rename("CHR.BP.REF.ALT" = MarkerName)
@@ -521,7 +521,7 @@ leftjoin = left_join(meta, Genename)
 dim(leftjoin)
 # 833 17
 
-write.table(leftjoin, "META_AMP_UKB_23andme.txt", row.names =F, sep ="\t", quote = F)
+write.table(leftjoin, "META_AMP_UKB_23andme_clinvar.txt", row.names =F, sep ="\t", quote = F)
 ```
 
 ### Edit AAChange 
