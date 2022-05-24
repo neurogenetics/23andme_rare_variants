@@ -152,3 +152,54 @@ MAF_23_flip = ggplot(test_data, aes(MAF_NFE, MAF_23)) +
 ggsave("23andMe_MAF_23_flip_vs_NFE_flip.png", MAF_23_flip, width = 12, height = 5, dpi=300, units = "in")
 ```
 
+The actual calculations in GAS can be followed here: 
+https://hackmd.io/27l0s1BSQZ6e00WewIRNxA?view
+
+In addition to that:
+
+## Derive number of variants with those frequencies:
+
+```
+data %>% mutate(Freq_groups = ifelse(MAF_NFE <0.0001, 0.0001,
+                                           ifelse(MAF_NFE >= 0.0001 & MAF_NFE <0.0005, 0.0005,
+                                                   ifelse(MAF_NFE>=0.0005 & MAF_NFE < 0.001, 0.001,
+                                                           ifelse(MAF_NFE>=0.001 & MAF_NFE < 0.005, 0.005,
+                                                                   ifelse(MAF_NFE>=0.005 & MAF_NFE <0.01, 0.01,"")))))) %>% group_by(Freq_groups) %>% tally()
+
+```
+
+
+
+| OR/MAF             | 0.0001 | 0.0005 | 0.001 | 0.005 | 0.01 |
+|--------------------|--------|--------|-------|-------|------|
+| Number of variants, n | 252    | 130    | 51    | 63    | 12   |
+| 1.5                | 15.5%  | 55.2%  | 84%   | 100%  | 100% |
+| 2                  | 38.1%  | 95.9%  | 99.9% | 100%  | 100% |
+| 3                  | 79%    | 100%   | 100%  | 100%  | 100% |
+| 5                  | 99.2%  | 100%   | 100%  | 100%  | 100% |
+
+## Add actual case numbers
+number of cases + 1/4*proxy case = total number of cases
+
+23andMe: 25,034 cases (no proxies) and 3,065,473 controls
+
+0.0001: 25,034*2*0.0001= 5.01 = 5
+0.0005: 25,034*2*00005= 25.03 = 25
+0.001: 25,034*2*0.001= 50.07 = 50
+0.005: 25,034*2*0.005= 250.34 = 250
+0.01: 25,034*2*0.01= 500.68 = 501
+                                                    
+
+## Final table
+This table now includes number of variants with different frequencies, number of cases (from a total of ~25k) among those variants with different frequencies, and power calculations for different OR and MAF scenarios. Based on 23andMe data only.
+
+| OR/MAF                  | 0.0001  | 0.0005 | 0.001  | 0.005  | 0.01  |
+|-------------------------|---------|--------|--------|--------|-------|
+| Number of variants      | 252     | 130    | 51     | 63     | 12    |
+| Number of cases per MAF | 5 | 25 | 50 | 250 | 501 |
+| 1.5                     | 15.5%   | 55.2%  | 84%    | 100%   | 100%  |
+| 2                       | 38.1%   | 95.9%  | 99.9%  | 100%   | 100%  |
+| 3                       | 79%     | 100%   | 100%   | 100%   | 100%  |
+| 5                       | 99.2%   | 100%   | 100%   | 100%   | 100%  |
+
+We're reaching 80% power at OR = 3 for all MAFs!
