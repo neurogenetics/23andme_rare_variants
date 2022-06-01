@@ -246,7 +246,7 @@ for (i in CHR_MAFs) {
 tobind = andme %>% filter(MAF_23 > 1e-10) %>% select(CHR.BP.REF.ALT)
 final2 = cbind(tobind, final)
 
-write.table(final2, "23andMe_809variants_MAF1e10_power.txt", row.names = F, sep = "\t)
+write.table(final2, "23andMe_809variants_MAF1e10_power.txt", row.names = F, sep = "\t", quote = F)
 q()
 n
 
