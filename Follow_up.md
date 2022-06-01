@@ -203,3 +203,52 @@ This table now includes number of variants with different frequencies, number of
 | 5                       | 99.2%   | 100%   | 100%   | 100%   | 100%  |
 
 We're reaching 80% power at OR = 3 for all MAFs!
+
+
+## Calculate with genpwr in R
+
+```
+cd /data/CARD/projects/23andme_annotation/variants_in_internal_datasets/Power_calculations/
+```
+
+Write swarm file
+```
+vim Power_R.swarm
+
+module load R
+R
+
+library(genpwr)
+library(tidyverse)
+
+andme = read.table("23andMe_812variants_MAF_NFE_effect.txt", header = T, sep = "\t")
+head(andme)
+
+CHR_MAFs = andme %>% select(MAF_23)
+class(CHR_MAFs$MAF_23)
+CHR_MAFs = CHR_MAFs %>% filter(MAF_23 > 1e-10)
+CHR_MAFs = list(CHR_MAFs) 
+# results in 809 MAFs
+
+final = data.frame()
+
+for (i in CHR_MAFs) {
+  power = genpwr.calc(calc = "power", model = "logistic", ge.interaction = NULL,
+              N=125000, Case.Rate=0.2, k=NULL,
+              MAF=i[[1]], OR=c(2),Alpha=0.05,
+              True.Model=c("Additive"), 
+              Test.Model=c("Additive"))
+  power1 = c(cbind(MAF = power[1, 3], Power_at_Alpha_0.05 = power[1,9]))
+  final = rbind(final, power1)
+}
+
+
+tobind = andme %>% filter(MAF_23 > 1e-10) %>% select(CHR.BP.REF.ALT)
+final2 = cbind(tobind, final)
+
+write.table(final2, "23andMe_809variants_MAF1e10_power.txt")
+q()
+n
+
+swarm -f /data/CARD/projects/23andme_annotation/variants_in_internal_datasets/Power_calculations/Power_R.swarm --verbose 1 --module R -g 100 -t auto 
+```
