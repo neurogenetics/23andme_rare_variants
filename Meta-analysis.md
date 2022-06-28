@@ -510,16 +510,15 @@ library(data.table)
 Genename = fread("META_rare_variants_clinvar.hg38_multianno.txt", header = T)
 meta = fread("MY_META_AMP_UKB_23andme1.tbl", header = T)
 
-
 Genename = Genename %>% unite("CHR.BP.REF.ALT", c("Chr", "Start", "Ref", "Alt"), sep = ":")
-Genename = Genename %>% select(CHR.BP.REF.ALT, CLNSIG, Gene.refGene, AAChange.refGene)
+Genename = Genename %>% select(CHR.BP.REF.ALT, CLNSIG, CLNDN, CLNREVSTAT, Gene.refGene, AAChange.refGene)
 Genename = Genename %>% rename("Gene" = Gene.refGene, "AAChange" = AAChange.refGene)
 
 meta = meta %>% rename("CHR.BP.REF.ALT" = MarkerName)
 
 leftjoin = left_join(meta, Genename)
 dim(leftjoin)
-# 833 17
+# 833 20
 
 write.table(leftjoin, "META_AMP_UKB_23andme_clinvar.txt", row.names =F, sep ="\t", quote = F)
 ```
@@ -527,8 +526,35 @@ write.table(leftjoin, "META_AMP_UKB_23andme_clinvar.txt", row.names =F, sep ="\t
 ### Edit AAChange 
 ```
 Follow script I wrote https://hackmd.io/pEyV63whT_m0KnGAWmPsnQ?view
-# resulting file: Edited_AAChange_Metaanalysis.txt
+# resulting file: Edited_AAChange_metaanalysis_clean.txt
 ```
+
+### Combine both files
+So we end up with a meta-analysis file, clean variant names, and more variant related annotations
+```
+R 
+library(dplyr)
+library(data.table)
+
+Annotations = fread("META_AMP_UKB_23andme_clinvar.txt", header = T)
+Annotations = Annotations %>% rename("MarkerName" = CHR.BP.REF.ALT)
+dim(Annotations)
+[1] 833  20
+
+Meta_clean = fread("Edited_AAChange_Metaanalysis_clean.txt", header = T)
+dim(Meta_clean)
+[1] 833  18
+
+Meta_total = merge(Meta_clean, Annotations)
+dim(Meta_total) 
+[1] 833  20
+
+Meta_total = Meta_total %>% select(-c(`P-value`)) #got that twice in there
+
+write.table(Meta_total, "Edited_AAChange_Metaanalysis_clean_withannotations.txt", row.names =F, sep = "\t", quote =F)
+
+```
+
 
 # 6. Plot data and write result files
 ```
