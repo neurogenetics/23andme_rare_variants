@@ -1,4 +1,4 @@
-## check how many of the 1091 variants are in the summary stats provided by 23andme
+# Cross checking old variant list with new rare variants provided by 23andMe
 
 ```
 cd /data/CARD/projects/23andme_annotation
