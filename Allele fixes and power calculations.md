@@ -59,8 +59,8 @@ table_annovar.pl 23andMe_812_significant_to_annotate.txt $ANNOVAR_DATA/hg38/ \
 ```
 
 ### Edit frequency in 23andMe file - it's messy!
-
-```R
+```
+R
 library(tidyverse)
 andme = read.table("23andMe_variants_only_significant.txt", header = T, sep = "\t")
 
@@ -212,81 +212,116 @@ We're reaching 80% power at OR = 3 for all MAFs!
 cd /data/CARD/projects/23andme_annotation/variants_in_internal_datasets/Power_calculations/
 ```
 
-Write swarm file
+## Power calculation per variant
 ```
-vim Power_R.swarm
+### as suggested by Karl 
+# /data/CARD/projects/23andme_annotation/variants_in_internal_datasets/Power_calculations
 
-module load R
-R
-
-library(genpwr)
 library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(devtools)
+library(genpwr)
 
+## Taking all cases from meta analysis, accounting for proxies which count 1/4 of a case:
+# n_cases = 31156.25 = 31156
+# n_controls = 3,108,134
+# BUT using the conservative approach as suggested by Mike:
+# n_cases = 25,034
+# n_controls = 100,000
+
+## Read in data and write a paste loop to get the power estimate for every variant
 andme = read.table("23andMe_812variants_MAF_NFE_effect.txt", header = T, sep = "\t")
 head(andme)
 
 CHR_MAFs = andme %>% select(MAF_23)
 class(CHR_MAFs$MAF_23)
-CHR_MAFs = CHR_MAFs %>% filter(MAF_23 > 1e-10)
-CHR_MAFs = list(CHR_MAFs) 
+```
+
+Calculate power for OR2
+```
+CHR_MAFs_OR2 = CHR_MAFs %>% filter(MAF_23 > 1e-9)
+CHR_MAFs_OR2 = list(CHR_MAFs_OR2)
 # results in 809 MAFs
 
 final = data.frame()
 
-for (i in CHR_MAFs) {
+for (i in CHR_MAFs_OR2) {
   power = genpwr.calc(calc = "power", model = "logistic", ge.interaction = NULL,
-              N=125000, Case.Rate=0.2, k=NULL,
-              MAF=i[[1]], OR=c(2),Alpha=0.05,
-              True.Model=c("Additive"), 
-              Test.Model=c("Additive"))
-  power1 = c(cbind(MAF = power[1, 3], Power_at_Alpha_0.05 = power[1,9]))
-  final = rbind(final, power1)
+                      N=125000, Case.Rate=0.2, k=NULL,
+                      MAF=i[[1]], OR=c(2),Alpha=0.05,
+                      True.Model=c("Additive"), 
+                      Test.Model=c("Additive"))
+  #power1 = c(cbind(MAF = power[1, 3], Power_at_Alpha_0.05 = power[1,9]))
+  final_OR2 = rbind(final, power)
 }
 
-
-tobind = andme %>% filter(MAF_23 > 1e-10) %>% select(CHR.BP.REF.ALT)
-final2 = cbind(tobind, final)
-
-write.table(final2, "23andMe_809variants_MAF1e10_power.txt", row.names = F, sep = "\t", quote = F)
-q()
-n
+tobindOR2 = andme %>% filter(MAF_23 > 1e-9) %>% select(CHR.BP.REF.ALT, MAF_23, OR_23andMe)
+final2 = cbind(tobindOR2,final_OR2)
+head(final2)
 ```
 
-Re-do power calculation for those annotated as pathogenic in CLNSG but did not reach enough power - set OR to 3.
+calculate power for OR3
 ```
-andme = read.table("23andMe_812variants_MAF_NFE_effect.txt", header = T, sep = "\t")
-Annotations = read.table("~/Documents/Projects/23andme_rare_variants/FINAL/Meta_analysis/Edited_AAChange_Metaanalysis_clean_withannotations.txt", header = T, sep = "\t")
-Annotations = Annotations %>% select(MarkerName, CLNSIG) %>% rename("CHR.BP.REF.ALT" = MarkerName)
+CHR_MAFs_OR3 = CHR_MAFs %>% filter(MAF_23 > 1e-4)
+CHR_MAFs_OR3 = list(CHR_MAFs_OR3) 
+# results in 335 MAFs
 
-# add CLNSG column
-power = left_join(andme, Annotations)
-
-# select pathogenic variants
-power_path = power %>% filter(CLNSIG == "Pathogenic" | CLNSIG == "Pathogenic/Likely_pathogenic")
-
-# filter because genpwr can't pick them up when they're too small
-Unfortunately, to pick up power at OR =3, frequencies smaller than 1e-4 can not be picked up here
-Path_MAFs = power_path %>% select(MAF_23) %>% filter(MAF_23 > 1e-4)
-
-# make list for looping
-List_Path_MAFs = list(Path_MAFs) 
-
-# write empty data.frame to fill in
 final = data.frame()
 
-# loop loop loop
-for (i in List_Path_MAFs) {
+for (i in CHR_MAFs_OR3) {
   power = genpwr.calc(calc = "power", model = "logistic", ge.interaction = NULL,
                       N=125000, Case.Rate=0.2, k=NULL,
                       MAF=i[[1]], OR=c(3),Alpha=0.05,
                       True.Model=c("Additive"), 
                       Test.Model=c("Additive"))
   #power1 = c(cbind(MAF = power[1, 3], Power_at_Alpha_0.05 = power[1,9]))
-  final = rbind(final, power)
+  final_OR3 = rbind(final, power)
 }
 
-if it throws this error:
-Error in zero_finder_nleqslv(fa.2, veclength = 1, x.start.vals = runif(1) *  : 
-  cannot find a solution under upper.lim
-  
-That means the freq is too low to be calculated. The higher the OR, the bigger the freqs have to be.
+tobindOR3 = andme %>% filter(MAF_23 > 1e-4) %>% select(CHR.BP.REF.ALT, MAF_23, OR_23andMe)
+final3 = cbind(tobindOR3,final_OR3)
+head(final3)
+```
+Join them together
+```
+final = left_join(final2, final3)
+final = final %>% select(-c(MAF))
+```
+
+Add clinical significance to differentiate
+```
+Annotations = read.table("Edited_AAChange_Metaanalysis_clean_withannotations.txt", header = T, sep = "\t")
+Annotations = Annotations %>% select(MarkerName, CLNSIG) %>% rename("CHR.BP.REF.ALT" = MarkerName)
+head(Annotations)
+
+# join annotation on the file
+powerFile = left_join(final, Annotations)
+head(powerFile)
+
+# change power to %
+powerFile = powerFile %>% mutate(Power_at_OR2 = Power_at_OR2*100,
+                                 Power_at_OR3 = Power_at_OR3*100)
+
+# write table
+write.table(powerFile, "809_variants_with_power_at_OR2_and_OR3.txt", row.names = F, sep = "\t", quote = F)
+
+## how many pathogenic or pathogenic/likely pathogenic ones?
+powerFile %>% filter(CLNSIG == "Pathogenic" | CLNSIG == "Pathogenic/Likely_pathogenic") %>% tally()
+# 71
+```
+
+Write one big file with meta-analysis and power calculations
+```
+## read in meta analysis output with edited variant names
+Meta =  read.table("~/Documents/Projects/23andme_rare_variants/FINAL/Meta_analysis/Edited_AAChange_Metaanalysis_clean.txt", header = T, sep = "\t")
+head(Meta)
+Meta = Meta %>% rename("CHR.BP.REF.ALT" = MarkerName)
+
+Joined = left_join(Meta, powerFile)
+head(Joined)
+
+write.table(Joined, "833_variants_final_metafile_with_powers.txt", row.names = F, sep = "\t", quote = F)
+```
+
+*mic drop*
