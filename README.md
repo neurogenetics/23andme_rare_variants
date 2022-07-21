@@ -1,10 +1,8 @@
-## 23andme rare variants
-
+## Re-do variant selection 
  - **Project:** Assessment of Parkinson's disease pathogenic genes and risk variants
  - **Author(s):** Cornelis, Mike, Andy, and Vanessa
- - **Date Last Updated:** January 2022
+ - **Date Last Updated:** July 2022
 
----
 ### Quick Description: 
 Multiple genes and rare variants are associated with Parkinson’s disease and have been shown to be either a strong risk factor or to cause disease. However, the majority of genes are under heavy debate about their actual pathogenicity and this analysis aims to assess what genes and rare variants are actually associated with Parkinson’s disease.
 
@@ -19,7 +17,6 @@ Rare variant analyses in known PD genes
 - Optional, perform burden testing in genes using variants of interest using standard burden test algorithms like SKAT, CMC
 
 - Report these findings in collaboration with the 23andMe Team in a scientific journal.
-
 
 ## Structure of README:
 
@@ -36,6 +33,7 @@ Extracting gene-specific information especially with focus on genes identified i
 ### [4. Generate final list of variants](#4-final-list-of-variants)
 Write a final file with variants of interest from this data set
 
+
 ## 1. Understanding the data
 Data can be located in /data/CARD/projects/23andme_annotation. Note: the data is in genome build hg19.
 All SNPs are in the file "all_snp_info.txt".
@@ -50,28 +48,38 @@ wc -l all_snp_info_txt
 # 64,523,260 all_snp_info.txt
 ```
 
-The file contains 64,523,260 rows, equaling 64,523,259 variants (minus header included in wc -l).
-
+### Create new folder 
 ```
-head -n 1 all_snp_info.txt 
+mkdir mkdir Redo_variants_July2022
 ```
-File layout: 
 
-| all.data.id | gt.data.id | im.data.id | assay.name | scaffold | position | alleles | ploidy | cytobandgene.context | is.v1 | is.v2 | is.v3 | is.v4 | is.v5 | h550 | omni | strand |
-|-------------|------------|------------|------------|----------|----------|---------|--------|----------------------|-------|-------|-------|-------|-------|------|------|--------|
-
-
-## 2. Data cleaning and annotation
-Reduce file to only selected columns and annotate using ANNOVAR
+Make short file
 ```
-cut -f 4,5,6,7,10 all_snp_info.txt > short_all_snp_info.txt
-head -n 1 short_all_snp_info.txt 
+cut -f 4,5,6,7,10 all_snp_info.txt > /data/CARD/projects/23andme_annotation/Redo_variants_July2022/short_all_snp_info.txt
+
+cd ./Redo_variants_July2022
+```
+
 ```
 | assay.name | scaffold | position | alleles | gene.context |
 |------------|----------|----------|---------|--------------|
+```
+
+
+### General idea:
+- ignore indels since no alleles present :(
+- remove multi-allelics since its always tricky with them :(
+- annotate with annovar using 23andme alleles
+- extract all coding regions
+- get correct hg19 REF alleles
+- flip alleles to make them right
+- re-annotate with annovar with correct alleles
+- extract genes of interest
+
+
+## 2. Data cleaning and annotation
 
 D/I for alleles indicates that they are missing here.
-
 ```
 #only writing columns 'scaffold' and 'position'
 cut -f 2,3 short_all_snp_info.txt > temp1.txt 
@@ -87,30 +95,33 @@ cut -f 1,5 short_all_snp_info.txt > temp4.txt
 
 #combining the temp files, to end up with a new format
 paste temp1.txt temp2.txt temp3.txt temp4.txt > input_annovar_first_pass.txt
-```
 
 | scaffold | position | position | alleles | assay.name | gene.context |
 |----------|----------|----------|---------|------------|--------------|
-
-
-First annotation with ANNOVAR
+```
 
 ```
-module load annovar
+wc -l input_annovar_first_pass.txt
+# 64,523,260 input_annovar_first_pass.txt
+```
 
-#gene build hg19
+First annotation with ANNOVAR
+```
+module load annovar
 
 table_annovar.pl input_annovar_first_pass.txt $ANNOVAR_DATA/hg19/ \
 -buildver hg19 -protocol refGene,avsnp150 \
 -operation g,f -outfile first_pass_23andme -nastring .
-```
-This step creates the file "first_pass_23andme.hg19_multianno.txt", which looks like this:
 
+# This step creates the file "first_pass_23andme.hg19_multianno.txt", which looks like this:
 | Chr | Start | End | Ref | Alt | Func.refGene | Gene.refGene | GeneDetail.refGene | ExonicFunc.refGene | AAChange.refGene | avsnp150 |
 |-----|-------|-----|-----|-----|--------------|--------------|--------------------|--------------------|------------------|----------|
 
 refGene from ANNOVAR adds these columns: Func.refGene, Gene.refGene, GeneDetail.refGene, ExonicFunc.refGene, AAChange.refGene, while avsnp150 adds rsnumbers using dbSNP annotations. 
 
+(just ran this on the side in a swarm)
+swarm -f /data/CARD/projects/23andme_annotation/Redo_variants_July2022/annotate_1.swarm --verbose 1 --module annovar -g 100 -t auto 
+```
 
 ```
 wc -l first_pass_23andme.hg19_multianno.txt 
@@ -121,20 +132,33 @@ wc -l first_pass_23andme.hg19_multianno.txt
 Check how many unique rows 
 ```
 sort first_pass_23andme.hg19_multianno.txt | uniq | wc -l
-# failed for me but should be 63,825,064
+# 64,422,687 (with header)
+```
+
+Double-check in R
+```
+R
+library(data.table)
+data = fread("first_pass_23andme.hg19_multianno.txt")
+data %>% distinct() %>% tally()
+# 64,422,686
+q()
+n
 ```
 
 Create new file with only unique rows and variant identifier, combining columns Chr and Start, separating them with :
-
 ```
 cut -f 1,2 first_pass_23andme.hg19_multianno.txt | sed 's/\t/:/g' | sort | uniq -d > multiallelics.txt
+
 wc -l multiallelics.txt 
-# 671,848 multiallelics.txt (no header)
+# File 671,848 multiallelics.txt (no header) - 671,848 multiallelic variants to be removed
 ```
-File includes 671,848 multiallelic variants.
+
+### Check D/I variants
 
 4,124,008 variants have alleles labelled as D/I but are they useful?
 Write them into a new file by replacing D with A and I with G and then annotating again with ANNOVAR:
+
 ```
 awk '$4 == "D"' input_annovar_first_pass.txt > input_annovar_deletions.txt
 wc -l input_annovar_deletions.txt 
@@ -153,29 +177,37 @@ table_annovar.pl input_annovar_deletions.txt $ANNOVAR_DATA/hg19/ \
 
 #new file written input_annovar_deletions_annovar_AG_converted.hg19_multianno.txt
 ```
-From the annotation, it looks like these variants could be useful but without alleles, the data can not be reliably analysed. So further analysis is based on alleles A-C-T-G and ignores D/I.
+
+Annotation looks like these variants could be useful but without alleles, the data can not be reliably analysed. So further analysis is based on alleles A-C-T-G and ignores D/I.
 
 Extract 907,876 exonic variants and write into a new file
 ```
 grep "exonic" first_pass_23andme.hg19_multianno.txt > exonic_only.txt
 wc -l exonic_only.txt
-# 907876 exonic_only.txt (no header)
+# 907,876 exonic_only.txt (no header)
 ```
+
 Extract 11,667 splicing variants and write into a new file
 ```
 grep "splicing" first_pass_23andme.hg19_multianno.txt > splicing_only.txt
 wc -l splicing_only.txt 
-# 11667 splicing_only.txt (no header)
+# 11,667 splicing_only.txt (no header)
 ```
+
 Now merge exonic_only.txt and splicing_only.txt
 ```
 cat exonic_only.txt splicing_only.txt | sort -u > exonic_splicing_only.txt
+wc -l exonic_splicing_only.txt
+# 918,876 exonic_splicing_only.txt
 ```
 
 And add variant name
 ```
+#variant name style chr10:100003915
 cut -f 1,2 exonic_splicing_only.txt | sed 's/\t/:/g' > var_name.txt
+
 paste exonic_splicing_only.txt var_name.txt > exonic_splicing_only_v2.txt
+
 wc -l exonic_splicing_only_v2.txt
 # 918,876 exonic_splicing_only_v2.txt
 ```
@@ -186,7 +218,7 @@ sed -i 's/ /_/g' exonic_splicing_only_v2.txt
 # this removes the spaces in column 9, e.g. nonsynonymous SNV -> nonsynonymous_SNV
 ```
 
-Remove multi-allelic variants using antijoin().
+### Remove multi-allelic variants
 ```
 module load R/3.6.0 
 R
@@ -194,23 +226,33 @@ require(data.table)
 library(dplyr)
 data <- fread("exonic_splicing_only_v2.txt",header=F)
 dim(data)
-# 918876 rows, 12 columns
-dup <- fread("multiallelics.txt",header=F)
-dim(dup)
-# 671848 rows, 1 column
-names(dup)[1] <- "V12"
+# 918876     12
 
+dup <- fread("multiallelics.txt",header=F)
+names(dup)[1] <- "V12"
+dim(dup)
+# 671848      1
+
+
+# anti-join here
 data_no_dup <- anti_join(data, dup, by="V12")
 dim(data_no_dup)
-# 903097 rows, 12 columns
+# 903097     12
+
 double_check <- merge(data, dup, by="V12")
 dim(double_check)
-# 15779 rows, 12 columns
+# 15779    12
 
 write.table(data_no_dup, file="exonic_splicing_only_no_dup.txt", quote=FALSE,row.names=F,sep="\t")
 q()
 n
 ```
+
+```
+wc -l exonic_splicing_only_no_dup.txt
+# 903,098 exonic_splicing_only_no_dup.txt
+```
+
 Duplicate variants that were present in dup *and* in data were removed. Since the multiallelics.txt and exonix_splicing_only_v2.txt files are both based on first_pass_23andme.hg19_multianno.txt, the number of rows left in the file makes sense.
 A total of 903,097 variants are included in this file.
 
@@ -228,16 +270,12 @@ paste header.txt header1.txt > header_final.txt
 cat header_final.txt prep_for_ref_allele.txt > prep_for_ref_allele_input.txt 
 head prep_for_ref_allele_input.txt 
 
-wc -l prep_for_ref_allele_input.txt.
-# 903098 prep_for_ref_allele_input.txt (header)
-```
+# chr	start
+chr10	100003915
 
-| chr   | start     |
-|-------|-----------|
-| chr10 | 100003915 |
-| chr10 | 100010909 |
-| chr10 | 100010922 |
-| chr10 | 100011387 |
+wc -l prep_for_ref_allele_input.txt
+# 903,098 prep_for_ref_allele_input.txt (header)
+```
 
 Now use R to edit the file further: removing chromosomes 0, XY, MT
 ```
@@ -272,7 +310,7 @@ n
 
 Now merge the new file with the other data
 ```
-#combine column 1 (chr) and 2 (start), separating with : (chr:start).
+# combine column 1 (chr) and 2 (start), separating with : (chr:start).
 cut -f 1,2 coding_alleles_ref_allele.txt | sed 's/\t/:/g' > coding_alleles_ref_allelev2.txt
 
 # add other columns to it
@@ -280,8 +318,9 @@ paste coding_alleles_ref_allelev2.txt coding_alleles_ref_allele.txt > coding_all
 
 # writing file with reference alleles that need to be corrected
 paste coding_alleles_ref_allelev3.txt exonic_splicing_only_no_dup.txt > to_resolve_REF.txt
+
 wc -l to_resolve_REF.txt
-# 903098 to_resolve_REF.txt
+# 903,098 to_resolve_REF.txt
 ```
 
 Compare if reference allele is in column V4 or V5
@@ -329,12 +368,24 @@ In 9 cases, the reference allele is not available in any of the columns - remove
 
 ```
 to_resolve2 = to_resolve2 %>% filter(Comparing_ref != "FALSEFALSE")
+
+# A tibble: 2 x 2
+  Comparing_ref      n
+  <chr>          <int>
+1 FALSETRUE     452215
+2 TRUEFALSE     450873
 ```
 
 And replace V5 with V4, V4 with REF - for the correct allele order
 ```
 to_resolve3 = to_resolve2
 to_resolve3 %>% group_by(Comparing_ref) %>% tally()
+# A tibble: 2 x 2
+  Comparing_ref      n
+  <chr>          <int>
+1 FALSETRUE     452215
+2 TRUEFALSE     450873
+
 
 to_resolve3 = to_resolve3 %>% mutate(V5 = ifelse(Comparing_ref == "FALSETRUE", V4, V5))
 to_resolve3 = to_resolve3 %>% mutate(V4 = ifelse(Comparing_ref == "FALSETRUE", REF, V4))
@@ -344,9 +395,9 @@ to_resolve3 = to_resolve3 %>% mutate(Comparing_ref = if_else(REF == V4 & REF == 
                                                                     if_else(REF != V4 & REF == V5, "FALSETRUE", 
                                                                             if_else(REF != V4 & REF != V5, "FALSEFALSE", "EMPTY")))))
 
-to_resolve3 %>% group_by(Comparing_ref) %>% tally()
 
-# A tibble: 1 × 2
+to_resolve3 %>% group_by(Comparing_ref) %>% tally()
+# A tibble: 1 x 2
   Comparing_ref      n
   <chr>          <int>
 1 TRUEFALSE     903088
@@ -354,13 +405,14 @@ to_resolve3 %>% group_by(Comparing_ref) %>% tally()
 write.table(to_resolve3, "to_resolve_REF_v2.txt", row.names = F, quote = F, sep="\t")
 q()
 n
-
-wc -l to_resolve_REF_v2.txt 
-# 903089 to_resolve_REF_v2.txt (header)
 ```
-903,088 variants remaining
 
-Re-annotate
+```
+wc -l to_resolve_REF_v2.txt 
+# 903,089 to_resolve_REF_v2.txt (header)
+```
+
+### Re-annotate
 
 ```
 # change file into normal layout: 
@@ -388,7 +440,6 @@ sed -i -e 's/ /_/g' second_pass_23andme_clinvar.hg19_multianno.txt
 wc -l second_pass_23andme_clinvar.hg19_multianno.txt
 # 903089 second_pass_23andme_clinvar.hg19_multianno.txt (header)
 ```
-
 
 ## 3. Extracting gene-specific information
 Start off with just looking at GBA, Parkinson's and Lewy. Grep the terms and write new files:
@@ -418,11 +469,14 @@ wc -l Lewy_only.txt
 
 Prioritize variants by removing all that say "Benign" or "Benign/Likely_benign" or "Likely_benign" from "CLNSIG" for the files:
 PD_only.txt, GBA_only.txt, and Lewy_only.txt
-```
-module load R/3.6.0 
-R
 
-PD_only = read.table("PD_only.txt", sep = "\t", header = T)
+```
+library(dplyr)
+library(data.table)
+
+PD_only = fread("PD_only.txt")
+dim(PD_only)
+# 355 16 
 
 PD_only %>% group_by(CLNSIG) %>% tally()
 
@@ -439,46 +493,53 @@ PD_only %>% group_by(CLNSIG) %>% tally()
 
 PD_only = PD_only %>% filter(CLNSIG != "Benign"& CLNSIG != "Benign/Likely_benign" & CLNSIG != "Likely_benign")
 
+dim(PD_only)
+# 236  16
+
 PD_only %>% group_by(CLNSIG) %>% tally()
 
-# A tibble: 5 × 2
+# A tibble: 6 x 2
   CLNSIG                                           n
   <chr>                                        <int>
-1 Conflicting_interpretations_of_pathogenicity    30
-2 Likely_pathogenic                                1
-3 Pathogenic                                      25
-4 risk_factor                                      3
-5 Uncertain_significance                          87
+1 Conflicting_interpretations_of_pathogenicity    49
+2 Likely_pathogenic                                2
+3 Pathogenic                                      45
+4 Pathogenic/Likely_pathogenic                     4
+5 risk_factor                                      8
+6 Uncertain_significance                         128
 
 PD_only %>% group_by(Gene.refGene) %>% tally() %>% arrange(desc(n))
-# A tibble: 33 x 2
+# A tibble: 30 x 2
    Gene.refGene     n
-   <fct>        <int>
+   <chr>        <int>
  1 LRRK2           75
  2 ATP13A2         26
- 3 PRKN            23
- 4 PINK1           22
- 5 SLC6A3          17
- 6 SNCAIP          16
- 7 SYNJ1           13
- 8 FBXO7           12
- 9 PLA2G6           9
-10 GBA              8
-# … with 23 more rows
+ 3 PINK1           22
+ 4 PRKN            16
+ 5 SYNJ1           12
+ 6 PLA2G6           9
+ 7 SLC6A3           8
+ 8 SNCAIP           8
+ 9 FBXO7            7
+10 GBA              7
+# … with 20 more rows
 
 
 write.table(PD_only, file="PD_only.txt", quote=FALSE,row.names=F,sep="\t")
 
 q()
+n
+```
 
+```
 wc -l PD_only.txt
 # 237 PD_only.txt
 ```
 
-Repeat for GBA_ony.txt
+Repeat for GBA_only.txt (n=135)
 
 ```
-GBA_only = read.table("GBA_only.txt", sep = "\t", header = F, quote="", fill=FALSE)
+GBA_only = fread("GBA_only.txt")
 # this file does not contain headers, so add them using rename()
 
 GBA_only = GBA_only %>% rename("Chr" = V1, "Start" = V2, "End" = V3, "Ref" = V4, "Alt" = V5, "Func.refGene" = V6, "Gene.refGene" = V7, "GeneDetail.refGene" = V8, "ExonicFunc.refGene" = V9, "AAChange.refGene" =V10, "avsnp150" = V11, "CLNALLELE" = V12, "CLNDN" = V13, "CLNDISDB" = V14, "CLNREVSTAT" = V15, "CLNSIG" = V16)
@@ -508,6 +569,7 @@ GBA_only %>% group_by(CLNSIG) %>% tally()
 10 Uncertain_significance                           6
 
 GBA_only = GBA_only %>% filter(CLNSIG != "Benign"& CLNSIG != "Benign/Likely_benign" & CLNSIG != "Likely_benign")
+
 GBA_only %>% group_by(CLNSIG) %>% tally()
 # A tibble: 7 x 2
   CLNSIG                                           n
@@ -537,6 +599,9 @@ And Lewy_only.txt
 
 ```
 R
+library(data.table)
+library(dplyr)
+
 Lewy = read.table("Lewy_only.txt", sep = "\t", header = T)
 
 Lewy %>% group_by(CLNSIG) %>% tally()
@@ -556,63 +621,60 @@ Lewy %>% group_by(Gene.refGene) %>% tally()
 # no filtering needed
 wc -l Lewy_only.txt
 # 10 Lewy_only.txt
-
 ```
 
-Merge all files, using full join
+### Merge all files, using full join
 ```
 # continue in R
 
+PD_only = fread("PD_only.txt")
+dim(PD_only)
+# [1] 236  16
+
+GBA_only = fread("GBA_only.txt")
+dim(GBA_only)
+# [1] 131  16
+
+Lewy_only = fread("Lewy_only.txt")
+dim(Lewy_only)
+# [1]  9 16
+
 join = full_join(PD_only, GBA_only)
 # note that GBA adds another column "CLNALLELE"
+dim(join)
+# [1] 360  17
 
-join = full_join(join, Lewy)
 
+join = full_join(join, Lewy_only)
+dim(join)
+# [1] 363  17
+```
+
+```
 #identify duplicates that might be introduced because of this extra columns
 join %>% group_by(Start) %>% tally() %>% filter(n>1)
-# A tibble: 5 x 2
-      Start     n
-      <int> <int>
-1 155204793     3
-2 155204987     2
-3 155205563     3
-4 155205634     2
-5 155207244     2
+# A tibble: 0 x 2
+# … with 2 variables: Start <int>, n <int>
 
-# remove them (7 records) with focus on those without value in CLNALLELE and n>1
-join1 = join %>% group_by(Start) %>% add_count() %>% ungroup()
+join %>% group_by(avsnp150) %>% tally() %>% filter(n>1)
+# A tibble: 1 x 2
+  avsnp150     n
+  <chr>    <int>
+1 .           42
 
-join1 %>% filter(n>1) %>% select(Start, CLNALLELE, n)
-# A tibble: 12 x 3
-       Start CLNALLELE     n
-       <int> <fct>     <int>
- 1 155204793 NA            3
- 2 155204987 NA            2
- 3 155205563 NA            3
- 4 155205634 NA            2
- 5 155207244 NA            2
- 6 155204793 19350         3
- 7 155204987 19334         2
- 8 155205563 19331         3
- 9 155205634 19329         2
-10 155207244 19367         2
-11 155204793 NA            3
-12 155205563 NA            3
+## they're all GBA!
+```
 
-join1 = join1 %>% filter(n==1 | n>1 & !is.na(CLNALLELE))
-dim(join1)
-[1] 363  18
-
-write.table(join1, file="variants_of_interest.txt", quote=FALSE,row.names=F,sep="\t")
+Write new file
+```
+write.table(join, file="variants_of_interest.txt", quote=FALSE,row.names=F,sep="\t")
 q()
 ```
 
 ```
 wc -l variants_of_interest.txt
-# 364 variants_of_interest.txt (header)
+# 364 variants_of_interest.txt (header) - 363 variants remaining
 ```
-363 variants remaining
-
 
 Now extract 23andme annotation format
 ```
@@ -636,17 +698,17 @@ data <- fread("to_import_R.txt",header=T)
 voi <- fread("variants_of_interest.txt",header=T)
 
 # add header to second column
-voi = tidyr::unite(voi, "scaffold:position", c(Chr:Start), sep = ":")
+voi2 = tidyr::unite(voi, "scaffold:position", c(Chr:Start), sep = ":")
 
 double_check <- merge(data, voi2, by="scaffold:position")
 dim(double_check)
-[1] 363  18
+# [1] 363  17
+
 write.table(double_check,file="variants_of_interest_with_23andme_ID.txt",quote=F,row.names=F,sep="\t")
 q()
 n
 
-# file contains 364 variants with 2 columns
-
+# file contains 364 variants with 18 columns
 ```
 
 ```
@@ -696,59 +758,67 @@ Annotate again, including allele frequency
 # writing columns 1-5 (Chr	Start	End	Ref	Alt) to a new file
 cut -f 1-5 PD_genes.txt > to_annotate_PD_genes.txt
 
+# remove header in R
+annotate = read.table("to_annotate_PD_genes.txt", header = T, sep = "\t")
+names(annotate) <- NULL
+write.table(annotate, "to_annotate_PD_genes.txt", quote = F, row.names = F, sep = "\t")
+
+#annotate
 table_annovar.pl to_annotate_PD_genes.txt $ANNOVAR_DATA/hg19/ \
 -buildver hg19 -protocol refGene,avsnp150,clinvar_20200316,gnomad211_genome \
 -operation g,f,f,f -outfile third_pass_23andme_clinvar_to_annotate_PD_genes -nastring .
 
 # new working file: "third_pass_23andme_clinvar_to_annotate_PD_genes.hg19_multianno.txt"
 wc -l third_pass_23andme_clinvar_to_annotate_PD_genes.hg19_multianno.txt 
-# 1545 third_pass_23andme_clinvar_to_annotate_PD_genes.hg19_multianno.txt (header)
+# 1544 third_pass_23andme_clinvar_to_annotate_PD_genes.hg19_multianno.txt (header)
 ```
 
-Remove synonymous variants and PINK1-AS genes
+### Remove synonymous variants and "-AS" genes
 ```
 module load R/3.6.0 
 R
 library(dplyr)
 library(tidyr)
 anno = read.table("third_pass_23andme_clinvar_to_annotate_PD_genes.hg19_multianno.txt", sep = "\t", header = T, quote="", fill=FALSE)
+dim(anno)
+# 1543 33
 
 anno %>% group_by(ExonicFunc.refGene) %>% tally()
 # A tibble: 5 x 2
   ExonicFunc.refGene     n
   <fct>              <int>
-1 .                    145
+1 .                    144
 2 nonsynonymous SNV    947
 3 startloss              3
 4 stopgain              43
 5 synonymous SNV       406
 
 anno = anno %>% filter(ExonicFunc.refGene != "synonymous SNV")
+dim(anno)
+# 1137 33
+
 anno %>% group_by(ExonicFunc.refGene) %>% tally()
 # A tibble: 4 x 2
   ExonicFunc.refGene     n
   <fct>              <int>
-1 .                    145
+1 .                    144
 2 nonsynonymous SNV    947
 3 startloss              3
 4 stopgain              43
-
-# remove second row, that's a mix with the header
-anno = anno %>% filter(Func.refGene != ".")
 
 # remove genes "-AS" in $Gene.refGene
 anno = tidyr::unite(anno, "combo", c(Chr:Start), sep = ":")
 anno = anno[!grepl("-AS", anno$Gene.refGene), ]
 
-write.table(anno, "variants_of_interest_additional_VP.txt", quote=F,row.names=F,sep="\t")
+write.table(anno, "variants_of_interest_additional.txt", quote=F,row.names=F,sep="\t")
 # adding the VP because "cannot open file 'variants_of_interest_additional.txt': Permission denied"
 q()
 n
 ```
 
 ```
-wc -l variants_of_interest_additional_VP.txt
-# 1015 variants_of_interest_additional_VP.txt (header)
+wc -l variants_of_interest_additional.txt
+# 1015 variants_of_interest_additional.txt
 ```
 
 Continue editing 23andme annotation and extracting 23andme format
@@ -763,55 +833,145 @@ cut -f 4 all_snp_info.txt > assay_name.txt
 paste assay_name.txt var_name.txt > to_import_R.txt
 ```
 
-Keep editing in R
 ```
-module load R/3.6.0 
+module load R
 R
 require(data.table)
 library(dplyr)
+
 data <- fread("to_import_R.txt",header=T)
-voi <- fread("variants_of_interest_additional_VP.txt",header=T)
+voi <- fread("variants_of_interest_additional.txt",header=T)
+
 names(data)[2] <- "combo"
-# anti-join here
+
+# merge here
 double_check <- merge(data, voi, by="combo")
-double_check = double_check %>% select(combo, assay.name)
-
 dim(double_check)
-# [1] 1014   33
+# 1014 33
 
-write.table(double_check,file="variants_of_interest_with_23andme_ID_second_pass_VP.txt",quote=F,row.names=F,sep="\t")
-
-q()
-n
+write.table(double_check,file="variants_of_interest_with_23andme_ID_second_pass.txt",quote=F,row.names=F,sep="\t")
 ```
 
 ```
-wc -l variants_of_interest_with_23andme_ID_second_pass_VP.txt
-# 1015 variants_of_interest_with_23andme_ID_second_pass_VP.txt (header)
+wc -l variants_of_interest_with_23andme_ID_second_pass.txt
+# 1015 variants_of_interest_with_23andme_ID_second_pass.txt (header)
 ```
 
 ## 4. Final list of variants
-
-Merge both files "variants of interest with 23andme"
 ```
-# rename scaffold:position to V1
-module load R/3.6.0 
+cat variants_of_interest_with_23andme_ID.txt variants_of_interest_with_23andme_ID_second_pass.txt \
+| sort -u | grep -v "assay.name" > FINAL_variants_of_interest_with_23andme_ID.txt
+```
+
+```
+wc -l FINAL_variants_of_interest_with_23andme_ID.txt 
+# 1377 FINAL_variants_of_interest_with_23andme_ID.txt
+```
+
+Double-check in R
+```
 R
-variants = fread("variants_of_interest_with_23andme_ID.txt", header = T)
-names(variants)[1] <- "V1"
-variants = variants %>% select(V1, assay.name)
-write.table(variants,file="variants_of_interest_with_23andme_ID.txt",quote=F,row.names=F,sep="\t")
-q()
-n
+library(dplyr)
+library(data.table)
 
-cat variants_of_interest_with_23andme_ID.txt variants_of_interest_with_23andme_ID_second_pass_VP.txt \
-| sort -u | grep -v "assay.name" > FINAL_variants_of_interest_with_23andme_ID_VP.txt
+### first file
+first = fread("variants_of_interest_with_23andme_ID.txt", header = T)
+dim(first)
+# 363 17
+first$CLNALLELEID = as.character(first$CLNALLELEID)
 
-# check file
-wc -l FINAL_variants_of_interest_with_23andme_ID_VP.txt 
-# 1091 FINAL_variants_of_interest_with_23andme_ID_VP.txt
+# check variants in here
+first %>% group_by(ExonicFunc.refGene) %>% tally()
+# A tibble: 4 × 2
+  ExonicFunc.refGene     n
+  <chr>              <int>
+1 .                     11
+2 nonsynonymous_SNV    293
+3 stopgain              17
+4 synonymous_SNV        42
 
+first = first %>% rename("combo" = 'scaffold:position')
+first_ID = first %>% select(combo, assay.name, ExonicFunc.refGene)
+
+### second file
+second = fread("variants_of_interest_with_23andme_ID_second_pass.txt", header = T)
+dim(second)
+# 1014 33
+
+# check variants in here
+second %>% group_by(ExonicFunc.refGene) %>% tally()
+# A tibble: 4 × 2
+  ExonicFunc.refGene     n
+  <chr>              <int>
+1 .                     21
+2 nonsynonymous_SNV    947
+3 startloss              3
+4 stopgain              43
+
+second$ExonicFunc.refGene[second$ExonicFunc.refGene == "nonsynonymous SNV"] <- "nonsynonymous_SNV"
+
+second_ID = second %>% select(combo, assay.name, ExonicFunc.refGene)
+
+IDjoin = full_join(first_ID, second_ID)
+dim(IDjoin)
+# 1091 3
+
+## now join other columns to this with left_join
+final = left_join(IDjoin, second)
+final = left_join(final, first)
+
+dim(final)
+# 1091 34
+
+## check duplicates
+final %>% group_by(combo) %>% tally() %>% filter(n>1)
+# none
+final %>% group_by(assay.name) %>% tally() %>% filter(n>1)
+# none
+
+## final checks for synonymous variants
+final %>% group_by(ExonicFunc.refGene) %>% tally()
+
+# A tibble: 5 × 2
+  ExonicFunc.refGene     n
+  <chr>              <int>
+1 .                     27
+2 nonsynonymous_SNV    976
+3 startloss              3
+4 stopgain              43
+5 synonymous_SNV        42
+
+final = final %>% filter(ExonicFunc.refGene != "synonymous_SNV")
+dim(final)
+# 1049 34
+
+## Clinical significance
+final %>% group_by(CLNSIG) %>% tally()
+
+# A tibble: 11 × 2
+   CLNSIG                                           n
+   <chr>                                        <int>
+ 1 .                                              521
+ 2 Benign                                          61
+ 3 Benign/Likely_benign                            27
+ 4 Conflicting_interpretations_of_pathogenicity    66
+ 5 Likely_benign                                   48
+ 6 Likely_pathogenic                               31
+ 7 Pathogenic                                      86
+ 8 Pathogenic/Likely_pathogenic                    18
+ 9 risk_factor                                      7
+10 Uncertain_significance                         149
+11 NA                                              35
+
+
+## will leave all those in, would be interesting to see how impactful they are in our analysis
+
+write.table(final, "FINAL_variants_of_interest_with_23andme_ID.txt", row.names =F, sep = "\t", quote = F)
+```
+
+```
+wc -l FINAL_variants_of_interest_with_23andme_ID.txt
+# 1050 FINAL_variants_of_interest_with_23andme_ID.txt
 ```
 
 DONE
-
