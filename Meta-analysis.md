@@ -451,7 +451,7 @@ metal my_METAL.txt
 ## Complete results will be stored in file 'MY_META_AMP_UKB_23andme1.tbl'
 ## Column descriptions will be stored in file 'MY_META_AMP_UKB_23andme1.tbl.info'
 ## Completed meta-analysis for 833 markers!
-## Smallest p-value is 3.06e-384 at marker 'chr12:40340400:G:A'
+## Smallest p-value is 6.42e-391 at marker 'chr12:40340400:G:A'
 ```
 
 Check output files and make plots
@@ -500,8 +500,6 @@ mv META_rare_variants_clinvar.hg38_multianno.txt ./Results
 # 5. File edits
 ### Add OR and 95% CI
 ```
-cd /data/CARD/projects/23andme_annotation/variants_in_internal_datasets/Results/
-
 R
 library(dplyr)
 library(tidyr)
@@ -520,7 +518,7 @@ leftjoin = left_join(meta, Genename)
 dim(leftjoin)
 # 833 20
 
-write.table(leftjoin, "META_AMP_UKB_23andme_clinvar.txt", row.names =F, sep ="\t", quote = F)
+write.table(leftjoin, "/data/CARD/projects/23andme_annotation/variants_in_internal_datasets/Results/META_AMP_UKB_23andme_clinvar.txt", row.names =F, sep ="\t", quote = F)
 ```
 
 ### Edit AAChange 
